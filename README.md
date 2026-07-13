@@ -110,6 +110,7 @@ Important variables include:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `YOUTUBE_REDIRECT_URI` such as `http://localhost:3000/api/youtube/callback`
+- `FFMPEG_PATH` optional path to `ffmpeg.exe` when FFmpeg is not on PATH
 - `SUPABASE_URL`
 - `DATABASE_URL`
 - `WORKER_SECRET`
@@ -118,7 +119,7 @@ Important variables include:
 
 - The local `.velvet/` database is intended for development and single-user desktop use.
 - Long-running jobs are recorded, but not yet processed by a durable worker service.
-- The render endpoint creates a render manifest and will attempt FFmpeg MP4 composition when FFmpeg is installed.
+- The render endpoint creates a render manifest and will attempt FFmpeg MP4 composition when FFmpeg is on PATH or `FFMPEG_PATH` points to `ffmpeg.exe`.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
 - Supabase or hosted database persistence is not wired yet.
 

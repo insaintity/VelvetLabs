@@ -8,6 +8,7 @@ import { addJob, readDatabase, updateJob, writeDatabase } from "@/lib/server/db"
 import { exportsDir } from "@/lib/server/paths";
 
 const execFileAsync = promisify(execFile);
+const ffmpegBinary = process.env.FFMPEG_PATH || "ffmpeg";
 
 export async function POST(request: Request) {
   const { projectId } = await request.json();
@@ -45,9 +46,9 @@ export async function POST(request: Request) {
 
   if (project.generatedTracks?.length) {
     try {
-      await execFileAsync("ffmpeg", ["-version"]);
+      await execFileAsync(ffmpegBinary, ["-version"]);
       videoPath = path.join(projectDir, `${project.id}.mp4`);
-      await execFileAsync("ffmpeg", [
+      await execFileAsync(ffmpegBinary, [
         "-y",
         "-f",
         "lavfi",
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       renderStatus = "rendered";
       message = "MP4 rendered with FFmpeg.";
     } catch {
-      message = "Render package is ready, but FFmpeg is not installed or could not render the video.";
+      message = "Render package is ready, but FFmpeg is not available to Velvet or could not render the video. Set FFMPEG_PATH if it is not on PATH.";
     }
   } else {
     message = "Render manifest created. Generate music tracks before MP4 composition.";

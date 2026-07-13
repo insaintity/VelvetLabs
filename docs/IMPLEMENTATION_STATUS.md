@@ -38,6 +38,6 @@ Pending:
 
 - Supabase persistence
 - Durable background workers outside the request lifecycle
-- Full FFmpeg MP4 rendering requires FFmpeg installed on the host
+- Full FFmpeg MP4 rendering requires FFmpeg on PATH or `FFMPEG_PATH`
 - Provider usage/cost accounting
 - Production vault/KMS integration
