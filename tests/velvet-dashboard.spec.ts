@@ -1,4 +1,55 @@
 import { expect, test } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+const fixtureProjectId = "playwright-blueprint";
+
+async function writeFixtureDatabase() {
+  await mkdir(path.join(process.cwd(), ".velvet"), { recursive: true });
+  await writeFile(
+    path.join(process.cwd(), ".velvet", "db.json"),
+    `${JSON.stringify(
+      {
+        setup: {},
+        projects: [
+          {
+            id: fixtureProjectId,
+            title: "Midnight Velvet",
+            brief: "A late-night jazz album with piano, saxophone and brushed drums.",
+            status: "blueprint",
+            createdAt: "2026-07-13T00:00:00.000Z",
+            updatedAt: "2026-07-13T00:00:00.000Z",
+            blueprint: {
+              title: "Midnight Velvet",
+              concept: "A cinematic late-night jazz album.",
+              targetLengthMinutes: 24,
+              coverPrompt: "Elegant midnight jazz album cover.",
+              videoPrompt: "Slow velvet curtains and stage light.",
+              tracks: [
+                {
+                  title: "Amber Masque",
+                  durationSeconds: 180,
+                  prompt: "Slow saxophone-led noir jazz with brushed drums.",
+                  mood: "noir"
+                }
+              ],
+              youtube: {
+                title: "Midnight Velvet - AI Jazz Album",
+                description: "A cinematic AI jazz album.",
+                tags: ["jazz", "ai music"]
+              }
+            }
+          }
+        ],
+        prompts: [],
+        jobs: [],
+        uploads: []
+      },
+      null,
+      2
+    )}\n`
+  );
+}
 
 test.describe("Velvet dashboard", () => {
   test("renders the first-launch studio shell", async ({ page }, testInfo) => {
@@ -72,8 +123,20 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("YouTube metadata prompt")).toBeVisible();
   });
 
+  test("renders project review and workflow controls", async ({ page }) => {
+    await writeFixtureDatabase();
+    await page.goto(`/projects/${fixtureProjectId}`);
+
+    await expect(page.getByRole("heading", { name: "Midnight Velvet" })).toBeVisible();
+    await expect(page.getByText("Amber Masque")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Generate" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Render" })).toBeVisible();
+  });
+
   test("keeps primary pages inside the fixed studio frame", async ({ page }) => {
-    for (const path of ["/dashboard", "/projects/new", "/projects", "/history", "/settings"]) {
+    await writeFixtureDatabase();
+    for (const path of ["/dashboard", "/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/history", "/settings"]) {
       await page.goto(path);
       const hasScroll = await page.evaluate(() => {
         const root = document.scrollingElement ?? document.documentElement;

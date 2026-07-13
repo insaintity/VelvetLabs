@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { databasePath, ensureVelvetDir } from "./paths";
-import type { JobRecord, PromptRecord, SetupRecord, VelvetDatabase } from "./types";
+import type { JobRecord, ProjectRecord, PromptRecord, SetupRecord, VelvetDatabase } from "./types";
 
 const emptyDatabase: VelvetDatabase = {
   setup: {},
@@ -68,4 +68,18 @@ export async function updateJob(id: string, patch: Partial<JobRecord>) {
   database.jobs = database.jobs.map((job) => (job.id === id ? { ...job, ...patch, updatedAt: new Date().toISOString() } : job));
   await writeDatabase(database);
   return database.jobs.find((job) => job.id === id);
+}
+
+export async function getProject(id: string) {
+  const database = await readDatabase();
+  return database.projects.find((project) => project.id === id);
+}
+
+export async function updateProject(id: string, patch: Partial<ProjectRecord>) {
+  const database = await readDatabase();
+  database.projects = database.projects.map((project) =>
+    project.id === id ? { ...project, ...patch, updatedAt: new Date().toISOString() } : project
+  );
+  await writeDatabase(database);
+  return database.projects.find((project) => project.id === id);
 }

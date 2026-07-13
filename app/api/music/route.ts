@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const projectDir = path.join(exportsDir, project.id);
     await mkdir(projectDir, { recursive: true });
-    const tracks = [];
+    const tracks: Array<{ title: string; filePath: string; durationSeconds: number }> = [];
 
     for (const [index, track] of project.blueprint.tracks.entries()) {
       const audio = await generateMusicTrack({
@@ -44,7 +44,9 @@ export async function POST(request: Request) {
     }
 
     const latest = await readDatabase();
-    latest.projects = latest.projects.map((item) => (item.id === projectId ? { ...item, status: "generating", updatedAt: new Date().toISOString() } : item));
+    latest.projects = latest.projects.map((item) =>
+      item.id === projectId ? { ...item, status: "generating", generatedTracks: tracks, updatedAt: new Date().toISOString() } : item
+    );
     await writeDatabase(latest);
     await updateJob(job.id, { status: "completed", message: "Music tracks generated.", result: { tracks } });
 

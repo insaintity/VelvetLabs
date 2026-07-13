@@ -11,6 +11,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Encrypts provider secrets before local storage.
 - Validates OpenAI and ElevenLabs keys.
 - Generates album blueprints with OpenAI once setup is complete.
+- Provides a project review screen for approving blueprints before paid generation.
 - Stores projects, prompt versions, jobs, and upload records in a local project database.
 - Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
@@ -117,7 +118,7 @@ Important variables include:
 
 - The local `.velvet/` database is intended for development and single-user desktop use.
 - Long-running jobs are recorded, but not yet processed by a durable worker service.
-- The render endpoint creates a render manifest; full FFmpeg MP4 composition is still pending.
+- The render endpoint creates a render manifest and will attempt FFmpeg MP4 composition when FFmpeg is installed.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
 - Supabase or hosted database persistence is not wired yet.
 

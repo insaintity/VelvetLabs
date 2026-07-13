@@ -17,10 +17,13 @@ Implemented:
 - Real ElevenLabs key validation
 - ChatGPT/OpenAI album blueprint generation endpoint
 - Project database persisted to `.velvet/db.json`
+- Project detail screen with blueprint review
+- Blueprint approval endpoint and workflow controls
 - Prompt/version history records
 - Job queue records for blueprint, music, render and YouTube upload work
 - ElevenLabs music generation endpoint for blueprint tracks
-- Render manifest export endpoint
+- Render manifest export endpoint with FFmpeg detection
+- Safe YouTube upload path validation
 - YouTube OAuth login with state validation
 - YouTube OAuth token exchange and encrypted refresh-token storage
 - YouTube channel lookup after OAuth
@@ -35,6 +38,6 @@ Pending:
 
 - Supabase persistence
 - Durable background workers outside the request lifecycle
-- Full FFmpeg MP4 rendering
+- Full FFmpeg MP4 rendering requires FFmpeg installed on the host
 - Provider usage/cost accounting
 - Production vault/KMS integration

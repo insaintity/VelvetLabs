@@ -52,8 +52,20 @@ export type ProjectRecord = {
   id: string;
   title: string;
   brief: string;
-  status: "blueprint" | "generating" | "rendered" | "uploaded" | "failed";
+  status: "blueprint" | "approved" | "generating" | "rendered" | "uploaded" | "failed";
   blueprint?: AlbumBlueprint;
+  approvedAt?: string;
+  generatedTracks?: Array<{
+    title: string;
+    filePath: string;
+    durationSeconds: number;
+  }>;
+  render?: {
+    manifestPath: string;
+    videoPath?: string;
+    status: "blocked" | "rendered";
+    message: string;
+  };
   createdAt: string;
   updatedAt: string;
 };

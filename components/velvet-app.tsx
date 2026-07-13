@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   ChevronDown,
@@ -75,6 +75,29 @@ type ClientProject = {
   brief: string;
   status: string;
   createdAt: string;
+  blueprint?: {
+    concept: string;
+    coverPrompt: string;
+    videoPrompt: string;
+    tracks: Array<{
+      title: string;
+      durationSeconds: number;
+      prompt: string;
+      mood: string;
+    }>;
+    youtube: {
+      title: string;
+      description: string;
+      tags: string[];
+    };
+  };
+  generatedTracks?: Array<{ title: string; filePath: string; durationSeconds: number }>;
+  render?: {
+    manifestPath: string;
+    videoPath?: string;
+    status: string;
+    message: string;
+  };
 };
 
 type ClientPrompt = {
@@ -197,6 +220,10 @@ function FreshWorkspace({ pathname }: { pathname: string }) {
     return <SettingsWorkspace />;
   }
 
+  if (pathname.startsWith("/projects/") && pathname !== "/projects/new") {
+    return <ProjectDetailWorkspace id={pathname.split("/").filter(Boolean)[1]} />;
+  }
+
   if (pathname === "/projects") {
     return <ProjectsWorkspace />;
   }
@@ -283,11 +310,11 @@ function ProjectsWorkspace() {
           </div>
           <div className="mt-5 grid grid-cols-3 gap-3">
             {projects.slice(0, 6).map((project) => (
-              <article key={project.id} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4">
+              <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4 hover:border-[var(--border-hover)]">
                 <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.status}</div>
                 <h2 className="mt-3 line-clamp-2 font-serif text-[28px] leading-none">{project.title}</h2>
                 <p className="mt-3 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{project.brief}</p>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
@@ -312,6 +339,173 @@ function ProjectsWorkspace() {
       </section>
     </div>
   );
+}
+
+function ProjectDetailWorkspace({ id }: { id: string }) {
+  const [project, setProject] = useState<ClientProject | null>(null);
+  const [jobs, setJobs] = useState<ClientJob[]>([]);
+  const [message, setMessage] = useState("Review the blueprint before running paid generation.");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const loadProject = useCallback(async () => {
+    const response = await fetch(`/api/projects/${id}`);
+    const data = await response.json();
+    setProject(data.project ?? null);
+    setJobs(data.jobs ?? []);
+  }, [id]);
+
+  useEffect(() => {
+    loadProject().catch(() => setMessage("Project could not be loaded."));
+  }, [loadProject]);
+
+  async function runAction(action: "approve" | "music" | "render" | "upload") {
+    const endpoints = {
+      approve: `/api/projects/${id}/approve`,
+      music: "/api/music",
+      render: "/api/render",
+      upload: "/api/youtube/upload"
+    };
+
+    setBusyAction(action);
+    setMessage(`${actionLabel(action)}...`);
+
+    try {
+      const response = await fetch(endpoints[action], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: id })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? `${actionLabel(action)} failed.`);
+      }
+
+      setMessage(data.message ?? `${actionLabel(action)} complete.`);
+      await loadProject();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${actionLabel(action)} failed.`);
+      await loadProject().catch(() => undefined);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-0 flex-1 p-5">
+        <section className="panel flex h-full items-center justify-center rounded-xl text-sm text-[var(--text-secondary)]">
+          {message}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_340px] gap-5 overflow-hidden p-5">
+      <section className="panel min-h-0 overflow-hidden rounded-xl p-5">
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-[0.16em] text-[var(--rose-soft)]">{project.status}</div>
+            <h1 className="mt-2 line-clamp-2 font-serif text-[44px] leading-none">{project.title}</h1>
+            <p className="mt-3 line-clamp-2 text-sm leading-6 text-[var(--text-secondary)]">{project.blueprint?.concept ?? project.brief}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <WorkflowButton label="Approve" active={busyAction === "approve"} onClick={() => runAction("approve")} disabled={project.status !== "blueprint"} />
+            <WorkflowButton label="Generate" active={busyAction === "music"} onClick={() => runAction("music")} disabled={!["approved", "generating"].includes(project.status)} />
+            <WorkflowButton label="Render" active={busyAction === "render"} onClick={() => runAction("render")} disabled={!project.generatedTracks?.length} />
+            <WorkflowButton label="Upload" active={busyAction === "upload"} onClick={() => runAction("upload")} disabled={!project.render?.videoPath} />
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-black/15 px-3 py-2 text-xs text-[var(--text-secondary)]">{message}</div>
+
+        <div className="mt-4 grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] gap-4">
+          <div className="space-y-3">
+            <SectionTitle label="Track Prompts" />
+            <div className="grid max-h-[410px] gap-2 overflow-hidden">
+              {(project.blueprint?.tracks ?? []).slice(0, 6).map((track, index) => (
+                <article key={track.title} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="truncate text-sm font-medium">
+                      {String(index + 1).padStart(2, "0")} {track.title}
+                    </h2>
+                    <span className="text-xs text-[var(--text-muted)]">{formatDuration(track.durationSeconds)}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">{track.prompt}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <SectionTitle label="Release Package" />
+            <InfoTile label="Cover prompt" value={project.blueprint?.coverPrompt ?? "Waiting for blueprint"} />
+            <InfoTile label="Video prompt" value={project.blueprint?.videoPrompt ?? "Waiting for blueprint"} />
+            <InfoTile label="YouTube title" value={project.blueprint?.youtube.title ?? "Waiting for blueprint"} />
+            <InfoTile label="Render" value={project.render?.message ?? "Not rendered yet"} />
+          </div>
+        </div>
+      </section>
+
+      <aside className="space-y-4 overflow-hidden">
+        <aside className="panel rounded-xl p-5">
+          <SectionTitle label="Job Queue" />
+          <div className="mt-4 space-y-2">
+            {(jobs.length ? jobs : [{ id: "empty", type: "ready", status: "idle", message: "No project jobs yet." }]).slice(0, 6).map((job) => (
+              <div key={job.id} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.12em] text-[var(--rose-soft)]">
+                  <span>{job.type}</span>
+                  <span>{job.status}</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{job.message}</p>
+              </div>
+            ))}
+          </div>
+        </aside>
+        <EmptyPanel title="Files" body={project.generatedTracks?.length ? `${project.generatedTracks.length} generated track file(s) stored locally.` : "Generated audio and render outputs will appear in the local Velvet export folder."} />
+      </aside>
+    </div>
+  );
+}
+
+function WorkflowButton({
+  label,
+  active,
+  disabled,
+  onClick
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || active}
+      className="h-9 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {active ? "Working..." : label}
+    </button>
+  );
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+      <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{label}</div>
+      <p className="mt-2 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{value}</p>
+    </article>
+  );
+}
+
+function actionLabel(action: "approve" | "music" | "render" | "upload") {
+  return {
+    approve: "Approving blueprint",
+    music: "Generating music",
+    render: "Rendering package",
+    upload: "Uploading to YouTube"
+  }[action];
 }
 
 function HistoryWorkspace() {
@@ -745,6 +939,7 @@ function NewProjectFlow() {
       }
 
       setMessage(`Blueprint created: ${data.project.title}`);
+      window.location.href = `/projects/${data.project.id}`;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Blueprint generation failed.");
     } finally {

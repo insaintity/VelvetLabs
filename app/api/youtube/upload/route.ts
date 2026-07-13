@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { addJob, readDatabase, updateJob, writeDatabase } from "@/lib/server/db";
+import { exportsDir } from "@/lib/server/paths";
 import { refreshYouTubeAccessToken, uploadYouTubeVideo } from "@/lib/server/providers/youtube";
 import { readSecret } from "@/lib/server/secrets";
 
@@ -27,7 +29,18 @@ export async function POST(request: Request) {
   });
 
   try {
-    const video = await readFile(videoPath);
+    const requestedVideoPath = videoPath || project.render?.videoPath;
+    if (!requestedVideoPath) {
+      return NextResponse.json({ error: "Render an MP4 before uploading." }, { status: 409 });
+    }
+
+    const safeRoot = path.resolve(exportsDir);
+    const safeVideoPath = path.resolve(requestedVideoPath);
+    if (!safeVideoPath.startsWith(safeRoot)) {
+      return NextResponse.json({ error: "Video path must be inside the Velvet export folder." }, { status: 400 });
+    }
+
+    const video = await readFile(safeVideoPath);
     const token = await refreshYouTubeAccessToken(refreshToken);
     const upload = await uploadYouTubeVideo({
       accessToken: token.access_token,
