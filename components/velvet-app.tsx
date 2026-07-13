@@ -302,10 +302,10 @@ function DashboardWorkspace() {
         </div>
       </section>
 
-      <aside className="space-y-4">
-        <EmptyPanel title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
-        <EmptyPanel title="Generation Queue" body="Queue is empty. Tracks appear here after a blueprint is approved." />
-        <EmptyPanel title="Publishing" body="YouTube publishing is unavailable until a channel is connected." href="/settings/youtube" action="Connect YouTube" />
+      <aside className="grid min-h-0 content-start gap-5">
+        <EmptyPanel className="min-h-[148px]" title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
+        <EmptyPanel className="min-h-[128px]" title="Generation Queue" body="Queue is empty. Tracks appear here after a blueprint is approved." />
+        <EmptyPanel className="min-h-[148px]" title="Publishing" body="YouTube publishing is unavailable until a channel is connected." href="/settings/youtube" action="Connect YouTube" />
       </aside>
     </div>
   );
@@ -1186,9 +1186,9 @@ function NewProjectFlow() {
   );
 }
 
-function EmptyPanel({ title, body, action, href }: { title: string; body: string; action?: string; href?: string }) {
+function EmptyPanel({ title, body, action, href, className = "" }: { title: string; body: string; action?: string; href?: string; className?: string }) {
   const content = (
-    <article className="panel rounded-xl p-4">
+    <article className={`panel rounded-xl p-5 ${className}`}>
       <SectionTitle label={title} />
       <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{body}</p>
       {action && href ? (
