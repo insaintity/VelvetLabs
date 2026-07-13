@@ -2,6 +2,7 @@
 
 - The app intentionally opens with no projects or seeded demo albums.
 - Local persistence uses `.velvet/db.json`, which is appropriate for local development but not multi-user production hosting.
+- Supabase/Postgres database URLs can be saved and validated, but app data is not migrated or synced there yet.
 - Secrets are encrypted locally; production should use a managed vault or KMS.
 - Job records are persisted, but there is not yet a separate durable worker process.
 - ElevenLabs music generation depends on the live provider endpoint and a valid key.

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { updateSetup } from "@/lib/server/db";
+import { readDatabase, updateSetup } from "@/lib/server/db";
 import { validateElevenLabsKey } from "@/lib/server/providers/elevenlabs";
 import { validateOpenAIKey } from "@/lib/server/providers/openai";
+import { validatePostgresConnection } from "@/lib/server/providers/postgres";
 import { requireSameOrigin } from "@/lib/server/security";
 import { readSecret } from "@/lib/server/secrets";
 
@@ -46,6 +47,33 @@ export async function POST(request: Request) {
       }
     });
     return NextResponse.json({ status: setup.elevenlabs?.status }, { status: result.valid ? 200 : 401 });
+  }
+
+  if (provider === "database") {
+    const database = await readDatabase();
+    const databaseUrl = await readSecret("databaseUrl");
+    if (!databaseUrl) {
+      const setup = await updateSetup({
+        worker: {
+          supabaseUrl: database.setup.worker?.supabaseUrl,
+          storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
+          status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
+          databaseStatus: { state: "missing", message: "Add a Supabase/Postgres database URL first.", checkedAt: now }
+        }
+      });
+      return NextResponse.json({ status: setup.worker?.databaseStatus }, { status: 400 });
+    }
+
+    const result = await validatePostgresConnection(databaseUrl);
+    const setup = await updateSetup({
+      worker: {
+        supabaseUrl: database.setup.worker?.supabaseUrl,
+        storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
+        status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
+        databaseStatus: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now }
+      }
+    });
+    return NextResponse.json({ status: setup.worker?.databaseStatus }, { status: result.valid ? 200 : 401 });
   }
 
   return NextResponse.json({ error: "Unknown provider." }, { status: 400 });

@@ -23,8 +23,10 @@ export type SetupRecord = {
     status: ProviderStatus;
   };
   worker?: {
+    supabaseUrl?: string;
     storageBucket: string;
     status: ProviderStatus;
+    databaseStatus?: ProviderStatus;
   };
   updatedAt?: string;
 };

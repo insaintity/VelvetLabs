@@ -10,7 +10,8 @@ export async function GET() {
     secrets: {
       openai: await hasSecret("openai"),
       elevenlabs: await hasSecret("elevenlabs"),
-      youtube: await hasSecret("youtubeRefreshToken")
+      youtube: await hasSecret("youtubeRefreshToken"),
+      database: await hasSecret("databaseUrl")
     }
   });
 }
@@ -23,8 +24,11 @@ export async function POST(request: Request) {
 
   await saveSecret("openai", body.openaiApiKey ?? "");
   await saveSecret("elevenlabs", body.elevenLabsApiKey ?? "");
+  await saveSecret("databaseUrl", body.databaseUrl ?? "");
+  await saveSecret("workerSecret", body.workerSecret ?? "");
   const hasOpenAI = Boolean(body.openaiApiKey) || (await hasSecret("openai"));
   const hasElevenLabs = Boolean(body.elevenLabsApiKey) || (await hasSecret("elevenlabs"));
+  const hasDatabase = Boolean(body.databaseUrl) || (await hasSecret("databaseUrl"));
 
   const setup = await updateSetup({
     openai: {
@@ -38,8 +42,13 @@ export async function POST(request: Request) {
       status: { state: hasElevenLabs ? "unchecked" : "missing", message: hasElevenLabs ? "Saved, not checked yet." : "Missing API key." }
     },
     worker: {
+      supabaseUrl: body.supabaseUrl || undefined,
       storageBucket: body.storageBucket || "velvet-assets",
-      status: { state: "valid", message: "Local storage is ready." }
+      status: { state: "valid", message: "Local storage is ready." },
+      databaseStatus: {
+        state: hasDatabase ? "unchecked" : "missing",
+        message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set."
+      }
     }
   });
 

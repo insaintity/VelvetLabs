@@ -86,6 +86,11 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Login to YouTube" })).toHaveAttribute("href", "/api/youtube/login");
+    await page.getByRole("button", { name: "03 Review" }).click();
+    await page.getByText("Storage and worker settings").click();
+    await expect(page.getByLabel("Supabase URL")).toBeVisible();
+    await expect(page.getByLabel("Database URL")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Test Database" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
   });
 

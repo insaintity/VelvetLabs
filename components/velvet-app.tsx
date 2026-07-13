@@ -61,7 +61,10 @@ type SetupForm = {
   imageModel: string;
   musicModel: string;
   outputFormat: string;
+  supabaseUrl: string;
+  databaseUrl: string;
   storageBucket: string;
+  workerSecret: string;
 };
 
 type ClientStatus = {
@@ -722,7 +725,10 @@ function SettingsWorkspace() {
     imageModel: "gpt-image-1",
     musicModel: "eleven-music",
     outputFormat: "mp3_44100_128",
-    storageBucket: "velvet-assets"
+    supabaseUrl: "",
+    databaseUrl: "",
+    storageBucket: "velvet-assets",
+    workerSecret: ""
   });
 
   useEffect(() => {
@@ -735,7 +741,8 @@ function SettingsWorkspace() {
           openai: setup.openai?.status,
           elevenlabs: setup.elevenlabs?.status,
           youtube: setup.youtube?.status,
-          worker: setup.worker?.status
+          worker: setup.worker?.status,
+          database: setup.worker?.databaseStatus
         });
         setSetupForm((current) => ({
           ...current,
@@ -743,6 +750,7 @@ function SettingsWorkspace() {
           imageModel: setup.openai?.imageModel ?? current.imageModel,
           musicModel: setup.elevenlabs?.musicModel ?? current.musicModel,
           outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
+          supabaseUrl: setup.worker?.supabaseUrl ?? current.supabaseUrl,
           storageBucket: setup.worker?.storageBucket ?? current.storageBucket
         }));
       })
@@ -765,14 +773,15 @@ function SettingsWorkspace() {
       openai: data.setup?.openai?.status,
       elevenlabs: data.setup?.elevenlabs?.status,
       youtube: data.setup?.youtube?.status,
-      worker: data.setup?.worker?.status
+      worker: data.setup?.worker?.status,
+      database: data.setup?.worker?.databaseStatus
     });
     setSavedNotice(response.ok);
     setSetupMessage(response.ok ? "Setup saved. Run tests to verify provider keys." : "Setup could not be saved.");
   }
 
-  async function validateProvider(provider: "openai" | "elevenlabs") {
-    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : "ElevenLabs"}...`);
+  async function validateProvider(provider: "openai" | "elevenlabs" | "database") {
+    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : provider === "elevenlabs" ? "ElevenLabs" : "database"}...`);
     const response = await fetch("/api/setup/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -927,12 +936,16 @@ function SettingsWorkspace() {
                 >
                   <AdvancedSetup label="Storage and worker settings">
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Supabase URL" placeholder="Optional later" help="Local encrypted storage is active now; Supabase can be wired later." />
+                      <Field label="Supabase URL" placeholder="https://project.supabase.co" value={setupForm.supabaseUrl} onChange={(value) => updateSetupForm("supabaseUrl", value)} help="Used as the Supabase project reference for future storage/API wiring." />
                       <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Where audio, artwork, renders, logs, and metadata will be stored." />
-                      <Field label="Database URL" placeholder="postgres://..." secret />
-                      <Field label="Worker secret" placeholder="Enter secret" secret help="Used to verify long-running background job requests." />
+                      <Field label="Database URL" placeholder="postgres://..." secret value={setupForm.databaseUrl} onChange={(value) => updateSetupForm("databaseUrl", value)} help="Saved encrypted. Use the Supabase pooled or direct Postgres connection string." />
+                      <Field label="Worker secret" placeholder="Enter secret" secret value={setupForm.workerSecret} onChange={(value) => updateSetupForm("workerSecret", value)} help="Used to verify long-running background job requests." />
                     </div>
                   </AdvancedSetup>
+                  <button onClick={() => validateProvider("database")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                    Test Database
+                  </button>
+                  <StatusLine status={providerStatus.database} />
                 </SetupCard>
                 <SetupCard
                   icon={<ShieldCheck className="h-5 w-5" />}

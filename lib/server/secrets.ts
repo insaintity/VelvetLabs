@@ -3,7 +3,9 @@ import { decryptSecret, encryptSecret, type EncryptedValue } from "./crypto";
 import { ensureVelvetDir, secretsPath } from "./paths";
 import type { ProviderName } from "./types";
 
-type SecretStore = Partial<Record<ProviderName | "youtubeRefreshToken", EncryptedValue>>;
+type SecretName = ProviderName | "youtubeRefreshToken" | "databaseUrl" | "workerSecret";
+
+type SecretStore = Partial<Record<SecretName, EncryptedValue>>;
 
 async function readSecretStore(): Promise<SecretStore> {
   await ensureVelvetDir();
@@ -20,7 +22,7 @@ async function writeSecretStore(store: SecretStore) {
   await writeFile(secretsPath, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 });
 }
 
-export async function saveSecret(name: ProviderName | "youtubeRefreshToken", value: string) {
+export async function saveSecret(name: SecretName, value: string) {
   if (!value.trim()) {
     return;
   }
@@ -30,13 +32,13 @@ export async function saveSecret(name: ProviderName | "youtubeRefreshToken", val
   await writeSecretStore(store);
 }
 
-export async function readSecret(name: ProviderName | "youtubeRefreshToken") {
+export async function readSecret(name: SecretName) {
   const store = await readSecretStore();
   const encrypted = store[name];
   return encrypted ? decryptSecret(encrypted) : undefined;
 }
 
-export async function hasSecret(name: ProviderName | "youtubeRefreshToken") {
+export async function hasSecret(name: SecretName) {
   const store = await readSecretStore();
   return Boolean(store[name]);
 }
