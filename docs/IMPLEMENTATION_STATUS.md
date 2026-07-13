@@ -14,6 +14,7 @@ Implemented:
 - Upload records with YouTube link, render context, prompt snapshot and usage snapshot
 - Provider setup screen with persisted setup state
 - Encrypted local secret storage under `.velvet/`
+- Env-backed production secret provider option
 - User-provided Supabase/Postgres database URL storage and validation
 - Supabase/Postgres schema initialization and local-record sync
 - Supabase CLI project linked to `tivxgfblnzwfwtynbbuu`
@@ -52,4 +53,4 @@ Pending:
 - Full hosted database primary mode with conflict handling
 - Durable background workers outside the request lifecycle
 - Full FFmpeg MP4 rendering requires FFmpeg on PATH or `FFMPEG_PATH`
-- Production vault/KMS integration
+- Managed KMS adapter beyond env-backed production secrets

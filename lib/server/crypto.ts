@@ -9,7 +9,7 @@ type EncryptedValue = {
 };
 
 async function getMasterKey() {
-  const envSecret = process.env.VELVET_MASTER_KEY;
+  const envSecret = process.env.VELVET_MASTER_KEY || process.env.TOKEN_ENCRYPTION_KEY;
   if (envSecret) {
     return createHash("sha256").update(envSecret).digest();
   }

@@ -68,7 +68,7 @@ Velvet is focused on:
 - ElevenLabs for music generation
 - YouTube login via Google OAuth for private uploads, thumbnails, metadata, and publishing workflows
 
-The setup UI saves keys through server routes. Secrets are encrypted with AES-GCM and stored in the gitignored `.velvet/` folder. For production, replace this local vault with a managed secret store or KMS.
+The setup UI saves keys through server routes. Secrets are encrypted with AES-GCM and stored in the gitignored `.velvet/` folder. Production deployments can set `VELVET_SECRET_PROVIDER=env` and provide provider secrets through the host vault/environment instead of writing local secret files.
 
 ## Upload History
 
@@ -121,6 +121,9 @@ Important variables include:
 - `SUPABASE_URL`
 - `DATABASE_URL`
 - `VELVET_DATABASE_MODE` set to `postgres` to mirror runtime records into the configured database
+- `VELVET_SECRET_PROVIDER` set to `env` to read secrets from deployment environment variables
+- `VELVET_MASTER_KEY` or `TOKEN_ENCRYPTION_KEY` for deterministic local secret encryption
+- `YOUTUBE_REFRESH_TOKEN` for env-backed YouTube OAuth token storage
 - `VELVET_OPENAI_INPUT_PER_1M_TOKENS_USD`, `VELVET_OPENAI_OUTPUT_PER_1M_TOKENS_USD`, `VELVET_ELEVENLABS_PER_MINUTE_USD`, `VELVET_FFMPEG_PER_RENDER_MINUTE_USD`, and `VELVET_YOUTUBE_UPLOAD_PER_VIDEO_USD` for optional local cost estimates
 - `WORKER_SECRET`
 
