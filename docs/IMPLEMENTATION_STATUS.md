@@ -14,6 +14,7 @@ Implemented:
 - Provider setup screen with persisted setup state
 - Encrypted local secret storage under `.velvet/`
 - User-provided Supabase/Postgres database URL storage and validation
+- Supabase/Postgres schema initialization and local-record sync
 - Real OpenAI key validation
 - Real ElevenLabs key validation
 - ChatGPT/OpenAI album blueprint generation endpoint
@@ -42,7 +43,7 @@ Implemented:
 Pending:
 
 - Supabase persistence
-- Database migration/sync from `.velvet` to user-provided Supabase/Postgres
+- Runtime hosted database mode after sync
 - Durable background workers outside the request lifecycle
 - Full FFmpeg MP4 rendering requires FFmpeg on PATH or `FFMPEG_PATH`
 - Provider usage/cost accounting

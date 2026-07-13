@@ -91,6 +91,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByLabel("Supabase URL")).toBeVisible();
     await expect(page.getByLabel("Database URL")).toBeVisible();
     await expect(page.getByRole("button", { name: "Test Database" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Initialize & Sync" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
   });
 

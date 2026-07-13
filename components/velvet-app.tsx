@@ -792,6 +792,26 @@ function SettingsWorkspace() {
     setSetupMessage(data.status?.message ?? (response.ok ? "Provider is ready." : "Provider check failed."));
   }
 
+  async function syncDatabase() {
+    setSetupMessage("Initializing and syncing database...");
+    const response = await fetch("/api/database/sync", { method: "POST" });
+    const data = await response.json();
+
+    if (!response.ok) {
+      setSetupMessage(data.error ?? "Database sync failed.");
+      return;
+    }
+
+    setProviderStatus((current) => ({
+      ...current,
+      database: {
+        state: "valid",
+        message: `Database synced: ${data.counts.projects} projects, ${data.counts.jobs} jobs.`
+      }
+    }));
+    setSetupMessage("Database initialized and synced.");
+  }
+
   return (
     <div className="min-h-0 flex-1 overflow-hidden p-4">
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
@@ -944,6 +964,9 @@ function SettingsWorkspace() {
                   </AdvancedSetup>
                   <button onClick={() => validateProvider("database")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                     Test Database
+                  </button>
+                  <button onClick={syncDatabase} className="ml-2 h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                    Initialize & Sync
                   </button>
                   <StatusLine status={providerStatus.database} />
                 </SetupCard>
