@@ -58,13 +58,12 @@ function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="panel flex min-h-0 flex-col rounded-[22px] px-4 py-6">
       <div className="px-3">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[rgba(239,99,152,0.32)] bg-[linear-gradient(145deg,rgba(239,99,152,0.16),rgba(74,110,232,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_28px_rgba(239,99,152,0.08)]">
-            <span className="font-serif text-[28px] leading-none text-[#f7eef5]">V</span>
+        <Link href="/dashboard" className="block">
+          <div className="font-serif text-[42px] lowercase leading-none tracking-[0.03em] text-[#f7eef5]">
+            velvet
           </div>
-          <div>
-            <div className="font-serif text-[38px] leading-none tracking-wide text-[#f4edf4]">Velvet</div>
-            <div className="mt-2 text-sm font-medium tracking-[0.18em] text-[var(--rose-soft)]">AI ALBUM FOUNDRY</div>
+          <div className="mt-2 text-[13px] font-medium tracking-[0.16em] text-[var(--rose-soft)]">
+            AI music foundry
           </div>
         </Link>
       </div>
