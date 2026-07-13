@@ -7,8 +7,10 @@ import {
   Circle,
   Database,
   FileText,
+  HelpCircle,
   History,
   KeyRound,
+  Lock,
   Music2,
   MoreHorizontal,
   Pause,
@@ -24,7 +26,7 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { historyColumns, historyPromptTypes, navItems, onboardingSteps, safetyDefaults, setupSteps } from "@/lib/app-data";
+import { historyColumns, historyPromptTypes, navItems, safetyDefaults, setupSteps } from "@/lib/app-data";
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 
@@ -45,6 +47,12 @@ export function VelvetApp() {
     </main>
   );
 }
+
+const setupStatusItems = [
+  { label: "ChatGPT", state: "Not checked" },
+  { label: "ElevenLabs", state: "Not checked" },
+  { label: "YouTube", state: "Not connected" }
+];
 
 function Sidebar({ pathname }: { pathname: string }) {
   return (
@@ -85,10 +93,13 @@ function Sidebar({ pathname }: { pathname: string }) {
       <div className="space-y-3">
         <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
           <div className="mb-3 text-[11px] font-semibold tracking-[0.18em] text-[var(--text-muted)]">SETUP</div>
-          {["ChatGPT", "ElevenLabs", "YouTube"].map((service) => (
-            <div key={service} className="mb-2 flex items-center justify-between text-xs text-[var(--text-secondary)] last:mb-0">
-              <span>{service}</span>
-              <span className="rounded-full border border-[var(--border)] bg-black/10 px-2 py-0.5 text-[var(--text-muted)]">Not connected</span>
+          {setupStatusItems.map((service) => (
+            <div key={service.label} className="mb-2 flex items-center justify-between gap-2 text-xs text-[var(--text-secondary)] last:mb-0">
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-muted)]" />
+                {service.label}
+              </span>
+              <span className="rounded-full border border-[var(--border)] bg-black/10 px-2 py-0.5 text-[var(--text-muted)]">{service.state}</span>
             </div>
           ))}
         </div>
@@ -133,11 +144,12 @@ function TopBar({ pageTitle }: { pageTitle: string }) {
           <MoreHorizontal className="h-5 w-5" />
         </button>
         <Link
-          href="/projects/new"
-          className="flex h-9 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-4 text-sm font-medium shadow-[0_10px_35px_rgba(239,99,152,0.26)]"
+          href="/settings"
+          title="Complete setup before creating an album."
+          className="flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 text-sm text-[var(--text-muted)]"
         >
-          <Plus className="h-4 w-4" />
-          Create Album
+          <Lock className="h-4 w-4" />
+          Album Locked
         </Link>
       </div>
     </header>
@@ -183,9 +195,11 @@ function DashboardWorkspace() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/projects/new"
+              href="/settings"
+              title="Complete setup before creating an album."
               className="flex h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-5 text-[var(--text-muted)]"
             >
+              <Lock className="h-4 w-4" />
               Create Album After Setup
             </Link>
           </div>
@@ -295,6 +309,8 @@ function HistoryWorkspace() {
 
 function SettingsWorkspace() {
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
+  const [activeSetupStep, setActiveSetupStep] = useState<"services" | "youtube" | "review">("services");
+  const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
     setYoutubeStatus(new URLSearchParams(window.location.search).get("youtube"));
@@ -309,75 +325,153 @@ function SettingsWorkspace() {
             Connect the minimum services Velvet needs: ChatGPT for creative planning, ElevenLabs for music, and YouTube for private review uploads. Secrets are shown here as setup fields only until the secure server-side vault is implemented.
           </p>
 
-          <div className="mt-3 grid grid-cols-5 gap-2">
-            {onboardingSteps.map((step, index) => (
-              <div
-                key={step}
-                data-testid="onboarding-step"
-                className="flex h-12 flex-col justify-center rounded-lg border border-[var(--border)] bg-white/[0.035] px-3"
-              >
-                <div className="tabular text-[11px] leading-none text-[var(--rose-soft)]">0{index + 1}</div>
-                <div className="mt-1.5 truncate text-[11px] font-medium leading-none">{step}</div>
+          <div className="mt-3 grid grid-cols-[120px_1fr] gap-3">
+            <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
+              <div className="text-xs text-[var(--text-muted)]">Setup progress</div>
+              <div className="mt-2 font-serif text-[34px] leading-none">0 / 3</div>
+              <div className="mt-2 h-1.5 rounded-full bg-black/25">
+                <div className="h-full w-0 rounded-full bg-[linear-gradient(90deg,var(--blue),var(--rose))]" />
               </div>
-            ))}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["services", "01", "AI + Music"],
+                ["youtube", "02", "YouTube"],
+                ["review", "03", "Review"]
+              ].map(([key, number, label]) => (
+                <button
+                  key={key}
+                  data-testid="onboarding-step"
+                  onClick={() => setActiveSetupStep(key as "services" | "youtube" | "review")}
+                  className={`flex h-12 flex-col justify-center rounded-lg border px-3 text-left ${
+                    activeSetupStep === key ? "border-[var(--border-active)] bg-[rgba(239,99,152,0.09)]" : "border-[var(--border)] bg-white/[0.035]"
+                  }`}
+                >
+                  <span className="tabular text-[11px] leading-none text-[var(--rose-soft)]">{number}</span>
+                  <span className="mt-1.5 truncate text-[11px] font-medium leading-none">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <SetupCard
-              icon={<KeyRound className="h-5 w-5" />}
-              title="ChatGPT / OpenAI"
-              body="Used for album blueprints, prompt revisions, artwork prompts, image generation and YouTube metadata."
-            >
-              <Field label="OpenAI API key" placeholder="sk-..." secret />
+          <div className="mt-3">
+            {activeSetupStep === "services" ? (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Planning model" placeholder="gpt-4.1" />
-                <Field label="Image model" placeholder="gpt-image-1" />
-              </div>
-            </SetupCard>
+                <SetupCard
+                  icon={<KeyRound className="h-5 w-5" />}
+                  title="ChatGPT / OpenAI"
+                  body="Used for album blueprints, prompt revisions, artwork prompts, image generation and YouTube metadata."
+                  status="Not checked"
+                >
+                  <Field
+                    label="OpenAI API key"
+                    placeholder="sk-..."
+                    secret
+                    help="Used for album planning, prompt rewriting, artwork prompts, and metadata."
+                  />
+                  <div className="flex gap-2">
+                    <button className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                      Test ChatGPT key
+                    </button>
+                    <AdvancedSetup label="Model defaults">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Planning model" placeholder="Velvet decides" />
+                        <Field label="Image model" placeholder="Velvet decides" />
+                      </div>
+                    </AdvancedSetup>
+                  </div>
+                </SetupCard>
 
-            <SetupCard
-              icon={<Music2 className="h-5 w-5" />}
-              title="ElevenLabs"
-              body="Used only when approved track prompts are ready for music generation."
-            >
-              <Field label="ElevenLabs API key" placeholder="Enter key" secret />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Music model" placeholder="eleven-music" />
-                <Field label="Output format" placeholder="mp3_44100_128" />
+                <SetupCard
+                  icon={<Music2 className="h-5 w-5" />}
+                  title="ElevenLabs"
+                  body="Used only when approved track prompts are ready for music generation."
+                  status="Not checked"
+                >
+                  <Field label="ElevenLabs API key" placeholder="Enter key" secret help="Used only after you approve track prompts." />
+                  <div className="flex gap-2">
+                    <button className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                      Test ElevenLabs key
+                    </button>
+                    <AdvancedSetup label="Music defaults">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Music model" placeholder="Velvet decides" />
+                        <Field label="Output format" placeholder="Velvet decides" />
+                      </div>
+                    </AdvancedSetup>
+                  </div>
+                </SetupCard>
               </div>
-            </SetupCard>
+            ) : null}
 
-            <SetupCard
-              icon={<Youtube className="h-5 w-5" />}
-              title="YouTube"
-              body="Connect with Google OAuth. Velvet will request permission to upload videos and read channel identity."
-            >
-              <Link
-                href="/api/youtube/login"
-                className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[#ff0033] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.18)]"
-              >
-                <Youtube className="h-4 w-4" />
-                Login to YouTube
-              </Link>
-              <p className="text-xs leading-5 text-[var(--text-muted)]">
-                OAuth client ID, client secret, and redirect URI live in server environment variables.
-              </p>
-            </SetupCard>
+            {activeSetupStep === "youtube" ? (
+              <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-3">
+                <SetupCard
+                  icon={<Youtube className="h-5 w-5" />}
+                  title="YouTube"
+                  body="Connect with Google OAuth. Velvet will request permission to upload videos and read channel identity."
+                  status="Not connected"
+                >
+                  <Link
+                    href="/api/youtube/login"
+                    title="Connects your channel through Google OAuth. Velvet never asks for your YouTube password."
+                    className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[rgba(255,0,51,0.84)] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.14)]"
+                  >
+                    <Youtube className="h-4 w-4" />
+                    Login to YouTube
+                  </Link>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">
+                    OAuth client ID, client secret, and redirect URI live in server environment variables.
+                  </p>
+                </SetupCard>
+                <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
+                  <div className="text-sm font-medium">Channel preview</div>
+                  <div className="mt-3 flex items-center gap-3 rounded-lg border border-[var(--border)] bg-black/15 p-3">
+                    <div className="grid h-10 w-10 place-items-center rounded-full border border-[var(--border)] bg-white/[0.04]">
+                      <Youtube className="h-5 w-5 text-[var(--text-muted)]" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-[var(--text-secondary)]">Not connected</div>
+                      <div className="text-xs text-[var(--text-muted)]">Channel name and handle appear here.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-            <SetupCard
-              icon={<Database className="h-5 w-5" />}
-              title="Storage & worker"
-              body="Needed later for generated audio, images, videos, logs and long-running jobs."
-            >
+            {activeSetupStep === "review" ? (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Supabase URL" placeholder="https://..." />
-                <Field label="Storage bucket" placeholder="velvet-coda-assets" />
+                <SetupCard
+                  icon={<Database className="h-5 w-5" />}
+                  title="Storage & worker"
+                  body="Needed later for generated audio, images, videos, logs and long-running jobs."
+                  status="Not configured"
+                >
+                  <AdvancedSetup label="Storage and worker settings">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Supabase URL" placeholder="https://..." help="Where project data and storage access will live." />
+                      <Field label="Storage bucket" placeholder="velvet-assets" help="Where audio, artwork, renders, logs, and metadata will be stored." />
+                      <Field label="Database URL" placeholder="postgres://..." secret />
+                      <Field label="Worker secret" placeholder="Enter secret" secret help="Used to verify long-running background job requests." />
+                    </div>
+                  </AdvancedSetup>
+                </SetupCard>
+                <SetupCard
+                  icon={<ShieldCheck className="h-5 w-5" />}
+                  title="What happens next?"
+                  body="Once services are connected, album creation unlocks and Velvet can create a blueprint for review."
+                  status="0 / 3 connected"
+                >
+                  <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
+                    {["Test keys", "Login to YouTube", "Save setup", "Create album"].map((item) => (
+                      <div key={item} className="rounded-lg border border-[var(--border)] bg-black/15 p-2">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </SetupCard>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Database URL" placeholder="postgres://..." secret />
-                <Field label="Worker secret" placeholder="Enter secret" secret />
-              </div>
-            </SetupCard>
+            ) : null}
           </div>
 
           {youtubeStatus ? <YouTubeStatusNotice status={youtubeStatus} /> : null}
@@ -389,23 +483,43 @@ function SettingsWorkspace() {
               Server-side only
             </div>
             <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-              This screen defines the onboarding flow. Real keys must be encrypted and stored server-side before any request is made.
+              Real keys and OAuth tokens must be encrypted and stored server-side. Setup can be saved locally as draft state before the vault is wired.
             </p>
             </div>
-            <button className="h-10 shrink-0 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">
+            <button
+              onClick={() => setSavedNotice(true)}
+              className="h-10 shrink-0 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium"
+              title="Stores configuration after backend secret storage is enabled."
+            >
               Save Setup
             </button>
+          </div>
+          {savedNotice ? (
+            <div className="mt-2 rounded-lg border border-[rgba(88,182,168,0.22)] bg-[rgba(88,182,168,0.06)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+              Setup draft noted. Persistent encrypted storage is the next backend step.
+            </div>
+          ) : null}
+
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {["Prompt/version history", "Error log", "Job queue"].map((item) => (
+              <div key={item} className="rounded-lg border border-[var(--border)] bg-black/15 p-2 text-xs text-[var(--text-muted)]">
+                {item}
+              </div>
+            ))}
           </div>
         </section>
         <aside className="space-y-4">
           <aside className="panel rounded-xl p-5">
             <SectionTitle label="Required Services" />
             <div className="mt-4 space-y-3">
-              {["ChatGPT / OpenAI", "ElevenLabs", "YouTube"].map((item) => (
-                <div key={item} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+              {setupStatusItems.map((item) => (
+                <div key={item.label} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
                   <div className="flex items-center justify-between gap-3 text-sm font-medium">
-                    {item}
-                    <span className="rounded-full border border-[var(--border)] bg-black/10 px-2 py-0.5 text-[11px] text-[var(--text-muted)]">Required</span>
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-[var(--text-muted)]" />
+                      {item.label === "ChatGPT" ? "ChatGPT / OpenAI" : item.label}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-black/10 px-2 py-0.5 text-[11px] text-[var(--text-muted)]">{item.state}</span>
                   </div>
                 </div>
               ))}
@@ -497,12 +611,14 @@ function SetupCard({
   icon,
   title,
   body,
-  children
+  children,
+  status
 }: {
   icon: React.ReactNode;
   title: string;
   body: string;
   children: React.ReactNode;
+  status?: string;
 }) {
   return (
     <article className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
@@ -510,20 +626,51 @@ function SetupCard({
         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-black/15 text-[var(--rose-soft)] [&>svg]:h-4 [&>svg]:w-4">
           {icon}
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium">{title}</h3>
           <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">{body}</p>
         </div>
+        {status ? (
+          <span className="shrink-0 rounded-full border border-[var(--border)] bg-black/15 px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+            {status}
+          </span>
+        ) : null}
       </div>
       <div className="mt-3 space-y-2">{children}</div>
     </article>
   );
 }
 
-function Field({ label, placeholder, secret = false }: { label: string; placeholder: string; secret?: boolean }) {
+function AdvancedSetup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-black/10 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <summary className="cursor-pointer list-none text-[var(--rose-soft)]">{label}</summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
+}
+
+function Field({
+  label,
+  placeholder,
+  secret = false,
+  help
+}: {
+  label: string;
+  placeholder: string;
+  secret?: boolean;
+  help?: string;
+}) {
   return (
     <label className="block text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      {label}
+      <span className="flex items-center gap-1.5">
+        {label}
+        {help ? (
+          <span title={help} aria-label={help}>
+            <HelpCircle className="h-3.5 w-3.5 text-[var(--rose-soft)]" aria-hidden="true" />
+          </span>
+        ) : null}
+      </span>
       <input
         type={secret ? "password" : "text"}
         className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-black/15 px-3 text-xs normal-case tracking-normal text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Velvet Coda dashboard", () => {
+test.describe("Velvet dashboard", () => {
   test("renders the first-launch studio shell", async ({ page }, testInfo) => {
     await page.goto("/dashboard");
 
@@ -8,7 +8,7 @@ test.describe("Velvet Coda dashboard", () => {
     await expect(page.getByRole("heading", { name: "Create your first AI jazz album." })).toBeVisible();
     await expect(page.getByText("Connect ChatGPT, ElevenLabs, and YouTube before creating the first album.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start Setup" }).first()).toHaveAttribute("href", "/settings");
-    await expect(page.getByRole("link", { name: "Create Album After Setup" })).toHaveAttribute("href", "/projects/new");
+    await expect(page.getByRole("link", { name: "Create Album After Setup" })).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("button", { name: /Play|Pause/ })).toBeVisible();
 
     const screenshot = await page.screenshot({ fullPage: true });
@@ -32,6 +32,7 @@ test.describe("Velvet Coda dashboard", () => {
     await expect(page.getByRole("heading", { name: "Onboarding" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "ChatGPT / OpenAI" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
+    await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Login to YouTube" })).toHaveAttribute("href", "/api/youtube/login");
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
@@ -48,7 +49,7 @@ test.describe("Velvet Coda dashboard", () => {
     await page.goto("/settings");
 
     const visibleStepCards = page.locator('[data-testid="onboarding-step"]');
-    await expect(visibleStepCards).toHaveCount(5);
+    await expect(visibleStepCards).toHaveCount(3);
     const cardsFit = await visibleStepCards.evaluateAll((cards) =>
       cards.every((card) => {
         const bounds = card.getBoundingClientRect();

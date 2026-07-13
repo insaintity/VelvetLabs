@@ -47,7 +47,7 @@ export const defaultOnboardingConfig: OnboardingConfig = {
     defaultPrivacy: "private"
   },
   worker: {
-    storageBucket: "velvet-coda-assets",
+    storageBucket: "velvet-assets",
     workerSecretEnvVar: "WORKER_SECRET"
   }
 };

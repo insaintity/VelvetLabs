@@ -1,8 +1,8 @@
 {
-  "name": "velvet-coda",
+  "name": "velvet",
   "version": "0.1.0",
   "private": true,
-  "description": "Velvet Coda AI album foundry.",
+  "description": "Velvet AI album foundry.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
