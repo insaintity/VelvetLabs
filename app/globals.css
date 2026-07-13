@@ -78,24 +78,6 @@ button {
   color: inherit;
 }
 
-.velvet-scroll {
-  scrollbar-color: rgba(239, 99, 152, 0.38) transparent;
-  scrollbar-width: thin;
-}
-
-.velvet-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.velvet-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.velvet-scroll::-webkit-scrollbar-thumb {
-  background: rgba(239, 99, 152, 0.26);
-  border-radius: 999px;
-}
-
 .panel {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 36%),

@@ -42,4 +42,16 @@ test.describe("Velvet Coda dashboard", () => {
     await expect(page.getByText("Track music prompts")).toBeVisible();
     await expect(page.getByText("YouTube metadata prompt")).toBeVisible();
   });
+
+  test("keeps primary pages inside the fixed studio frame", async ({ page }) => {
+    for (const path of ["/dashboard", "/projects/new", "/projects", "/history", "/settings"]) {
+      await page.goto(path);
+      const hasScroll = await page.evaluate(() => {
+        const root = document.scrollingElement ?? document.documentElement;
+        return root.scrollHeight > root.clientHeight + 1 || root.scrollWidth > root.clientWidth + 1;
+      });
+
+      expect(hasScroll, `${path} should not create page scroll`).toBe(false);
+    }
+  });
 });

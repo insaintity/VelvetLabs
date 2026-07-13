@@ -156,7 +156,7 @@ function FreshWorkspace({ pathname }: { pathname: string }) {
 
 function DashboardWorkspace() {
   return (
-    <div className="velvet-scroll grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_390px] gap-5 overflow-y-auto p-5">
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_390px] gap-5 overflow-hidden p-5">
       <section className="panel relative overflow-hidden rounded-xl p-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_14%,rgba(74,110,232,0.2),transparent_32%),radial-gradient(circle_at_18%_86%,rgba(239,99,152,0.16),transparent_28%)]" />
         <div className="relative max-w-3xl">
@@ -223,7 +223,7 @@ function ProjectsWorkspace() {
 
 function HistoryWorkspace() {
   return (
-    <div className="velvet-scroll min-h-0 flex-1 overflow-y-auto p-5">
+    <div className="min-h-0 flex-1 overflow-hidden p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
         <section className="panel rounded-xl p-5">
           <SectionTitle label="Upload History" />
@@ -237,7 +237,7 @@ function HistoryWorkspace() {
                 <div key={column}>{column}</div>
               ))}
             </div>
-            <div className="flex min-h-[260px] flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="flex min-h-[250px] flex-col items-center justify-center px-6 py-8 text-center">
               <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
                 <History className="h-7 w-7 text-[var(--rose-soft)]" />
               </div>
@@ -286,24 +286,24 @@ function HistoryWorkspace() {
 
 function SettingsWorkspace() {
   return (
-    <div className="velvet-scroll min-h-0 flex-1 overflow-y-auto p-5">
+    <div className="min-h-0 flex-1 overflow-hidden p-4">
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
-        <section className="panel rounded-xl p-5">
+        <section className="panel rounded-xl p-4">
           <SectionTitle label="Onboarding" />
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--text-secondary)]">
             Connect the minimum services Velvet Coda needs: ChatGPT for creative planning, ElevenLabs for music, and YouTube for private review uploads. Secrets are shown here as setup fields only until the secure server-side vault is implemented.
           </p>
 
-          <div className="mt-5 grid grid-cols-5 gap-2">
+          <div className="mt-3 grid grid-cols-5 gap-2">
             {onboardingSteps.map((step, index) => (
-              <div key={step} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+              <div key={step} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-2.5">
                 <div className="tabular text-xs text-[var(--rose-soft)]">0{index + 1}</div>
-                <div className="mt-2 text-xs font-medium leading-4">{step}</div>
+                <div className="mt-1.5 text-[11px] font-medium leading-4">{step}</div>
               </div>
             ))}
           </div>
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-3 grid grid-cols-2 gap-3">
             <SetupCard
               icon={<KeyRound className="h-5 w-5" />}
               title="ChatGPT / OpenAI"
@@ -341,7 +341,7 @@ function SettingsWorkspace() {
                 <Field label="Redirect URI" placeholder="http://localhost:3000/api/youtube/callback" />
                 <label className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
                   Default privacy
-                  <select className="mt-2 h-10 w-full rounded-lg border border-[var(--border)] bg-[#101122] px-3 text-sm normal-case tracking-normal text-white outline-none">
+                  <select className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-[#101122] px-3 text-xs normal-case tracking-normal text-white outline-none">
                     <option>Private</option>
                     <option>Unlisted</option>
                     <option>Scheduled</option>
@@ -366,15 +366,17 @@ function SettingsWorkspace() {
             </SetupCard>
           </div>
 
-          <div className="mt-5 rounded-xl border border-[rgba(239,99,152,0.22)] bg-[rgba(239,99,152,0.06)] p-4">
+          <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[rgba(239,99,152,0.22)] bg-[rgba(239,99,152,0.06)] p-3">
+            <div>
             <div className="flex items-center gap-2 text-sm font-medium">
               <KeyRound className="h-4 w-4 text-[var(--rose-soft)]" />
               Server-side only
             </div>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
               This screen defines the onboarding flow. Real keys must be encrypted and stored server-side before any request is made.
             </p>
-            <button className="mt-4 h-11 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">
+            </div>
+            <button className="h-10 shrink-0 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">
               Save Setup
             </button>
           </div>
@@ -412,7 +414,7 @@ function SettingsWorkspace() {
 
 function NewProjectFlow() {
   return (
-    <div className="velvet-scroll min-h-0 flex-1 overflow-y-auto p-5">
+    <div className="min-h-0 flex-1 overflow-hidden p-5">
       <div className="mx-auto grid max-w-[1120px] grid-cols-[1fr_340px] gap-5">
         <section className="panel rounded-xl p-5">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rose-soft)]">New album</div>
@@ -421,7 +423,7 @@ function NewProjectFlow() {
             Keep it simple. Mood, instrumentation, length and intended YouTube style are enough to begin.
           </p>
           <textarea
-            className="mt-5 min-h-[260px] w-full resize-none rounded-xl border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
+            className="mt-5 min-h-[250px] w-full resize-none rounded-xl border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
             placeholder="Example: A moody late-night jazz album with slow saxophone, intimate piano and brushed drums. Instrumental, cinematic, elegant, and made for a long-form YouTube release."
             aria-label="Album brief"
           />
@@ -470,17 +472,17 @@ function SetupCard({
   children: React.ReactNode;
 }) {
   return (
-    <article className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4">
+    <article className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-black/15 text-[var(--rose-soft)]">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-black/15 text-[var(--rose-soft)] [&>svg]:h-4 [&>svg]:w-4">
           {icon}
         </div>
         <div>
-          <h3 className="font-medium">{title}</h3>
-          <p className="mt-1 text-sm leading-5 text-[var(--text-muted)]">{body}</p>
+          <h3 className="text-sm font-medium">{title}</h3>
+          <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">{body}</p>
         </div>
       </div>
-      <div className="mt-4 space-y-3">{children}</div>
+      <div className="mt-3 space-y-2">{children}</div>
     </article>
   );
 }
@@ -491,7 +493,7 @@ function Field({ label, placeholder, secret = false }: { label: string; placehol
       {label}
       <input
         type={secret ? "password" : "text"}
-        className="mt-2 h-10 w-full rounded-lg border border-[var(--border)] bg-black/15 px-3 text-sm normal-case tracking-normal text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
+        className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-black/15 px-3 text-xs normal-case tracking-normal text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
         placeholder={placeholder}
       />
     </label>
