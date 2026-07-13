@@ -50,6 +50,10 @@ export async function POST(request: Request) {
         state: hasDatabase ? "unchecked" : "missing",
         message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set."
       }
+    },
+    budget: {
+      maxTracksPerRun: Number(body.maxTracksPerRun) || 10,
+      maxRenderAttemptsPerProject: Number(body.maxRenderAttemptsPerProject) || 5
     }
   });
 

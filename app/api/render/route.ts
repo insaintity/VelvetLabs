@@ -23,6 +23,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 
+  const maxRenderAttempts = database.setup.budget?.maxRenderAttemptsPerProject ?? 5;
+  const renderAttempts = database.usage.filter((usage) => usage.projectId === projectId && usage.operation === "render").length;
+  if (renderAttempts >= maxRenderAttempts) {
+    return NextResponse.json({ error: `Render guardrail reached for this project (${maxRenderAttempts} attempts).` }, { status: 409 });
+  }
+
   const job = await addJob({
     type: "render",
     projectId,

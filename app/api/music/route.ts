@@ -19,6 +19,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Project blueprint is required before generating music." }, { status: 404 });
   }
 
+  const maxTracks = database.setup.budget?.maxTracksPerRun ?? 10;
+  if (project.blueprint.tracks.length > maxTracks) {
+    return NextResponse.json({ error: `This blueprint has ${project.blueprint.tracks.length} tracks. Budget guardrail allows ${maxTracks} per run.` }, { status: 409 });
+  }
+
   const elevenLabsKey = await readSecret("elevenlabs");
   if (!elevenLabsKey) {
     return NextResponse.json({ error: "ElevenLabs setup is required before music generation." }, { status: 409 });

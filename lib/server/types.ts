@@ -29,6 +29,10 @@ export type SetupRecord = {
     status: ProviderStatus;
     databaseStatus?: ProviderStatus;
   };
+  budget?: {
+    maxTracksPerRun: number;
+    maxRenderAttemptsPerProject: number;
+  };
   updatedAt?: string;
 };
 

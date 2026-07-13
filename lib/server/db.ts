@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { databasePath, ensureVelvetDir } from "./paths";
+import { readVelvetDatabase, syncVelvetDatabase } from "./providers/postgres";
+import { readSecret } from "./secrets";
 import type { JobRecord, ProjectRecord, PromptRecord, SetupRecord, UsageRecord, VelvetDatabase } from "./types";
 
 const emptyDatabase: VelvetDatabase = {
@@ -12,21 +14,59 @@ const emptyDatabase: VelvetDatabase = {
   usage: []
 };
 
-export async function readDatabase(): Promise<VelvetDatabase> {
+async function readLocalDatabase(): Promise<VelvetDatabase> {
   await ensureVelvetDir();
 
   try {
     const raw = await readFile(databasePath, "utf8");
     return { ...emptyDatabase, ...JSON.parse(raw) };
   } catch {
-    await writeDatabase(emptyDatabase);
+    await writeLocalDatabase(emptyDatabase);
     return emptyDatabase;
   }
 }
 
-export async function writeDatabase(database: VelvetDatabase) {
+async function writeLocalDatabase(database: VelvetDatabase) {
   await ensureVelvetDir();
   await writeFile(databasePath, `${JSON.stringify(database, null, 2)}\n`);
+}
+
+async function getHostedConnectionString() {
+  if (process.env.VELVET_DATABASE_MODE !== "postgres") {
+    return undefined;
+  }
+
+  return process.env.DATABASE_URL || readSecret("databaseUrl");
+}
+
+export async function readDatabase(): Promise<VelvetDatabase> {
+  const localDatabase = await readLocalDatabase();
+  const connectionString = await getHostedConnectionString();
+
+  if (!connectionString) {
+    return localDatabase;
+  }
+
+  try {
+    const hostedDatabase = await readVelvetDatabase(connectionString);
+    return {
+      ...hostedDatabase,
+      setup: localDatabase.setup
+    };
+  } catch {
+    return localDatabase;
+  }
+}
+
+export async function writeDatabase(database: VelvetDatabase) {
+  await writeLocalDatabase(database);
+  const connectionString = await getHostedConnectionString();
+
+  if (!connectionString) {
+    return;
+  }
+
+  await syncVelvetDatabase(connectionString, database).catch(() => undefined);
 }
 
 export async function updateSetup(setup: SetupRecord) {

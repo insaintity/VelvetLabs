@@ -66,6 +66,8 @@ type SetupForm = {
   databaseUrl: string;
   storageBucket: string;
   workerSecret: string;
+  maxTracksPerRun: string;
+  maxRenderAttemptsPerProject: string;
 };
 
 type ClientStatus = {
@@ -730,7 +732,9 @@ function SettingsWorkspace() {
     supabasePublishableKey: "",
     databaseUrl: "",
     storageBucket: "velvet-assets",
-    workerSecret: ""
+    workerSecret: "",
+    maxTracksPerRun: "10",
+    maxRenderAttemptsPerProject: "5"
   });
 
   useEffect(() => {
@@ -754,7 +758,9 @@ function SettingsWorkspace() {
           outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
           supabaseUrl: setup.worker?.supabaseUrl ?? current.supabaseUrl,
           supabasePublishableKey: setup.worker?.supabasePublishableKey ?? current.supabasePublishableKey,
-          storageBucket: setup.worker?.storageBucket ?? current.storageBucket
+          storageBucket: setup.worker?.storageBucket ?? current.storageBucket,
+          maxTracksPerRun: String(setup.budget?.maxTracksPerRun ?? current.maxTracksPerRun),
+          maxRenderAttemptsPerProject: String(setup.budget?.maxRenderAttemptsPerProject ?? current.maxRenderAttemptsPerProject)
         }));
       })
       .catch(() => setSetupMessage("Setup status is unavailable."));
@@ -976,16 +982,13 @@ function SettingsWorkspace() {
                 </SetupCard>
                 <SetupCard
                   icon={<ShieldCheck className="h-5 w-5" />}
-                  title="What happens next?"
-                  body="Once services are connected, album creation unlocks and Velvet can create a blueprint for review."
-                  status="0 / 3 connected"
+                  title="Budget guardrails"
+                  body="Set hard limits for expensive actions. Pricing can be added later once provider billing is confirmed."
+                  status="Local limits"
                 >
-                  <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
-                    {["Test keys", "Login to YouTube", "Save setup", "Create album"].map((item) => (
-                      <div key={item} className="rounded-lg border border-[var(--border)] bg-black/15 p-2">
-                        {item}
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Max tracks/run" placeholder="10" value={setupForm.maxTracksPerRun} onChange={(value) => updateSetupForm("maxTracksPerRun", value)} />
+                    <Field label="Max render attempts" placeholder="5" value={setupForm.maxRenderAttemptsPerProject} onChange={(value) => updateSetupForm("maxRenderAttemptsPerProject", value)} />
                   </div>
                 </SetupCard>
               </div>

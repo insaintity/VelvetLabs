@@ -13,6 +13,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Lets users provide their own Supabase/Postgres database URL and validates the connection.
 - Initializes `velvet_*` tables in a user-provided Supabase/Postgres database and syncs local records into them.
 - Includes a Supabase CLI migration for the Velvet schema.
+- Supports opt-in hosted database mirroring with `VELVET_DATABASE_MODE=postgres`.
 - Generates album blueprints with OpenAI once setup is complete.
 - Provides a project review screen for approving blueprints before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.
@@ -118,6 +119,7 @@ Important variables include:
 - `FFMPEG_PATH` optional path to `ffmpeg.exe` when FFmpeg is not on PATH
 - `SUPABASE_URL`
 - `DATABASE_URL`
+- `VELVET_DATABASE_MODE` set to `postgres` to mirror runtime records into the configured database
 - `WORKER_SECRET`
 
 ## Current Limitations
@@ -126,9 +128,8 @@ Important variables include:
 - Long-running jobs are recorded, but not yet processed by a durable worker service.
 - The render endpoint creates a render manifest and will attempt FFmpeg MP4 composition when FFmpeg is on PATH or `FFMPEG_PATH` points to `ffmpeg.exe`.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
-- Supabase or hosted database persistence is not wired yet.
-- User-provided Supabase/Postgres connections can be saved, validated, initialized, and synced. Runtime writes still use local `.velvet` until hosted database mode is enabled.
-- Budget guardrails are recorded at the usage layer, but pricing/cost calculations are not yet attached.
+- User-provided Supabase/Postgres connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
+- Budget guardrails enforce local action limits, but pricing/cost calculations are not yet attached.
 
 ## Design Direction
 

@@ -17,6 +17,7 @@ Implemented:
 - Supabase/Postgres schema initialization and local-record sync
 - Supabase CLI project linked to `tivxgfblnzwfwtynbbuu`
 - Velvet schema migration applied remotely
+- Opt-in Postgres hosted mirror mode via `VELVET_DATABASE_MODE=postgres`
 - Real OpenAI key validation
 - Real ElevenLabs key validation
 - ChatGPT/OpenAI album blueprint generation endpoint
@@ -27,6 +28,7 @@ Implemented:
 - Prompt/version history records
 - Job queue records for blueprint, music, render and YouTube upload work
 - Provider usage records for OpenAI, ElevenLabs, FFmpeg, and YouTube operations
+- Budget guardrails for track count and render attempts
 - Upload privacy selector
 - Same-origin guard on mutating API routes
 - ElevenLabs music generation endpoint for blueprint tracks
@@ -44,9 +46,8 @@ Implemented:
 
 Pending:
 
-- Supabase persistence
-- Runtime hosted database mode after sync
+- Full hosted database primary mode with conflict handling
 - Durable background workers outside the request lifecycle
 - Full FFmpeg MP4 rendering requires FFmpeg on PATH or `FFMPEG_PATH`
-- Provider usage/cost accounting
+- Provider pricing and cost accounting
 - Production vault/KMS integration

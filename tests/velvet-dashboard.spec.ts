@@ -93,6 +93,8 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByLabel("Database URL")).toBeVisible();
     await expect(page.getByRole("button", { name: "Test Database" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Initialize & Sync" })).toBeVisible();
+    await expect(page.getByLabel("Max tracks/run")).toBeVisible();
+    await expect(page.getByLabel("Max render attempts")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
   });
 
