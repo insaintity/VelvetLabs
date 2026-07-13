@@ -1,8 +1,29 @@
 # Velvet Coda
 
-AI album foundry for planning, producing, rendering and publishing complete jazz albums.
+Velvet Coda is an AI album foundry for creating complete jazz albums and preparing them for YouTube release.
 
-Phase 1 is a polished first-launch studio shell. It keeps the Velvet Coda dashboard direction, but opens as a clean new workspace with no seeded album, fake jobs or fake provider activity.
+The app is currently in Phase 1: a polished first-launch studio shell with no fake albums, fake jobs, fake uploads, or simulated provider activity. It opens like a brand-new workspace and guides the user through setup before any generation workflow begins.
+
+## What It Does
+
+- Collects a natural-language album brief.
+- Onboards the required services: ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker settings.
+- Provides a fixed, no-scroll studio interface with dark midnight styling.
+- Shows empty Projects and Upload History states until real user work exists.
+- Defines the upload history surface that will preserve the prompts used for each uploaded release.
+
+## Tech Stack
+
+- Next.js App Router
+- React
+- TypeScript strict mode
+- Tailwind CSS
+- Zustand
+- Zod
+- Lucide icons
+- Framer Motion
+- Vitest
+- Playwright
 
 ## Quick Start
 
@@ -11,20 +32,97 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/dashboard`.
+Open:
 
-## Current Phase
+```text
+http://localhost:3000/dashboard
+```
 
-- Next.js App Router, React, strict TypeScript and Tailwind CSS
-- Velvet Coda visual system with dark plum/navy panels, rose/violet/blue lighting and editorial serif branding
-- Permanent sidebar, top project bar and bottom audio player
-- First-run dashboard with setup guidance and a single clear album creation path
-- Focused onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube, storage and worker setup
-- New project brief flow at `/projects/new`
-- Empty projects and disabled player states until real albums exist
-- Upload history page with prompt archive fields for completed YouTube uploads
-- Zustand-powered player shell state
+## Available Routes
 
-## Provider State
+- `/dashboard` - first-launch studio overview
+- `/projects/new` - album brief entry
+- `/projects` - empty project library
+- `/history` - upload history and prompt archive
+- `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker setup
 
-Provider credentials are not connected in Phase 1. The interface shows empty and not-connected states, and it never claims that ChatGPT/OpenAI, ElevenLabs, image tools, FFmpeg or YouTube work has happened.
+## Onboarding
+
+Velvet Coda is focused on:
+
+- ChatGPT/OpenAI for album planning, prompt refinement, artwork prompts, image generation, and YouTube metadata
+- ElevenLabs for music generation
+- YouTube for private uploads, thumbnails, metadata, and publishing workflows
+
+The current UI shows setup fields, but real secrets are not persisted yet. API keys and OAuth credentials must be encrypted and stored server-side before provider requests are enabled.
+
+## Upload History
+
+The History page is designed to log every uploaded album with:
+
+- YouTube video ID and URL
+- Privacy state
+- Thumbnail asset
+- Render manifest
+- Provider usage
+- Error and retry log
+- Album brief
+- Album blueprint prompt
+- Track music prompts
+- Album cover prompt
+- YouTube thumbnail prompt
+- Video background prompt
+- YouTube metadata prompt
+
+## Validation
+
+Run the full local verification suite:
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+npm run test:e2e
+```
+
+The Playwright suite checks the primary pages at desktop sizes and verifies that the main studio pages do not create page-level scrolling.
+
+## Environment
+
+Copy `.env.example` and fill in values when backend persistence and provider integrations are implemented.
+
+```bash
+cp .env.example .env.local
+```
+
+Important variables include:
+
+- `OPENAI_API_KEY`
+- `ELEVENLABS_API_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `YOUTUBE_REDIRECT_URI`
+- `SUPABASE_URL`
+- `DATABASE_URL`
+- `WORKER_SECRET`
+
+## Current Limitations
+
+- No provider calls are made yet.
+- API keys are not stored yet.
+- Supabase persistence is not wired yet.
+- ElevenLabs generation is not wired yet.
+- YouTube OAuth and uploads are not wired yet.
+- FFmpeg rendering is not wired yet.
+
+## Design Direction
+
+The interface should remain a dense, premium, midnight studio console:
+
+- dark plum and navy surfaces
+- rose, violet, and blue lighting
+- editorial serif branding
+- fixed no-scroll pages
+- compact, purposeful controls
+- no generic SaaS dashboard styling
