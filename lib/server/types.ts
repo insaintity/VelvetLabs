@@ -102,8 +102,19 @@ export type JobRecord = {
 export type UploadRecord = {
   id: string;
   projectId: string;
+  projectTitle?: string;
   videoId?: string;
   url?: string;
+  videoPath?: string;
+  manifestPath?: string;
+  idempotencyKey?: string;
+  prompts?: Array<{
+    kind: string;
+    prompt: string;
+    response?: string;
+    version: number;
+  }>;
+  usage?: UsageRecord[];
   privacy: "private" | "unlisted" | "public";
   status: "uploaded" | "failed";
   createdAt: string;

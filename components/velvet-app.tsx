@@ -127,6 +127,17 @@ type ClientUsage = {
   units: Record<string, number>;
 };
 
+type ClientUpload = {
+  id: string;
+  projectId: string;
+  projectTitle?: string;
+  url?: string;
+  privacy: string;
+  status: string;
+  createdAt: string;
+  prompts?: Array<{ kind: string; version: number }>;
+};
+
 function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="panel flex min-h-0 flex-col rounded-[22px] px-4 py-6">
@@ -641,8 +652,13 @@ function actionLabel(action: "approve" | "music" | "render" | "upload") {
 function HistoryWorkspace() {
   const [prompts, setPrompts] = useState<ClientPrompt[]>([]);
   const [jobs, setJobs] = useState<ClientJob[]>([]);
+  const [uploads, setUploads] = useState<ClientUpload[]>([]);
 
   useEffect(() => {
+    fetch("/api/uploads")
+      .then((response) => response.json())
+      .then((data) => setUploads(data.uploads ?? []))
+      .catch(() => setUploads([]));
     fetch("/api/prompts")
       .then((response) => response.json())
       .then((data) => setPrompts(data.prompts ?? []))
@@ -668,19 +684,38 @@ function HistoryWorkspace() {
                 <div key={column}>{column}</div>
               ))}
             </div>
-            <div className="flex min-h-[250px] flex-col items-center justify-center px-6 py-8 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
-                <History className="h-7 w-7 text-[var(--rose-soft)]" />
+            {uploads.length > 0 ? (
+              <div className="max-h-[290px] overflow-hidden">
+                {uploads.slice(0, 7).map((upload) => (
+                  <div key={upload.id} className="grid grid-cols-[1.1fr_1fr_0.7fr_0.8fr_0.7fr_0.7fr] items-center border-b border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)] last:border-b-0">
+                    <a href={upload.url} className="truncate text-[var(--rose-soft)]" target="_blank" rel="noreferrer">
+                      {upload.url ? "YouTube video" : upload.id.slice(0, 8)}
+                    </a>
+                    <Link href={`/projects/${upload.projectId}`} className="truncate text-white">
+                      {upload.projectTitle ?? upload.projectId}
+                    </Link>
+                    <div className="capitalize">{upload.privacy}</div>
+                    <div>{new Date(upload.createdAt).toLocaleDateString()}</div>
+                    <div>{upload.prompts?.length ?? 0}</div>
+                    <div className="capitalize">{upload.status}</div>
+                  </div>
+                ))}
               </div>
-              <h1 className="mt-4 font-serif text-[34px] leading-none">No uploads yet</h1>
-              <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
-                After an album is uploaded to YouTube, this log will show the upload record and open a complete prompt archive for that release.
-              </p>
-              <Link href="/projects/new" className="mt-5 flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-4 text-sm text-[var(--text-secondary)]">
-                Create first album
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            ) : (
+              <div className="flex min-h-[250px] flex-col items-center justify-center px-6 py-8 text-center">
+                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
+                  <History className="h-7 w-7 text-[var(--rose-soft)]" />
+                </div>
+                <h1 className="mt-4 font-serif text-[34px] leading-none">No uploads yet</h1>
+                <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
+                  After an album is uploaded to YouTube, this log will show the upload record and open a complete prompt archive for that release.
+                </p>
+                <Link href="/projects/new" className="mt-5 flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-4 text-sm text-[var(--text-secondary)]">
+                  Create first album
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
           </div>
         </section>
 

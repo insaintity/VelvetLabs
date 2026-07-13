@@ -11,6 +11,7 @@ Implemented:
 - First-launch dashboard
 - Empty-state and populated project library states
 - Upload history page backed by prompt and job records
+- Upload records with YouTube link, render context, prompt snapshot and usage snapshot
 - Provider setup screen with persisted setup state
 - Encrypted local secret storage under `.velvet/`
 - User-provided Supabase/Postgres database URL storage and validation
@@ -38,6 +39,7 @@ Implemented:
 - YouTube OAuth token exchange and encrypted refresh-token storage
 - YouTube channel lookup after OAuth
 - YouTube upload endpoint using resumable uploads
+- YouTube upload idempotency check to avoid duplicate uploads on retry
 - Permanent bottom player with disabled empty state and Zustand shell state
 - New-project brief flow
 - Documentation spine

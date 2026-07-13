@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
 
   const { projectId, videoPath, privacy = "private" } = await request.json();
+  const uploadPrivacy = ["private", "unlisted", "public"].includes(privacy) ? (privacy as "private" | "unlisted" | "public") : "private";
   const database = await readDatabase();
   const project = database.projects.find((item) => item.id === projectId);
 
@@ -40,8 +41,15 @@ export async function POST(request: Request) {
 
     const safeRoot = path.resolve(exportsDir);
     const safeVideoPath = path.resolve(requestedVideoPath);
-    if (!safeVideoPath.startsWith(safeRoot)) {
+    if (safeVideoPath !== safeRoot && !safeVideoPath.startsWith(`${safeRoot}${path.sep}`)) {
       return NextResponse.json({ error: "Video path must be inside the Velvet export folder." }, { status: 400 });
+    }
+
+    const idempotencyKey = createHash("sha256").update(`${projectId}:${safeVideoPath}:${uploadPrivacy}`).digest("hex");
+    const existingUpload = database.uploads.find((upload) => upload.status === "uploaded" && upload.idempotencyKey === idempotencyKey);
+    if (existingUpload) {
+      await updateJob(job.id, { status: "completed", message: "Upload already exists. Returning existing YouTube record.", result: existingUpload });
+      return NextResponse.json({ upload: existingUpload, message: "Upload already exists. Returning existing YouTube record." });
     }
 
     const video = await readFile(safeVideoPath);
@@ -52,23 +60,36 @@ export async function POST(request: Request) {
       title: project.blueprint.youtube.title,
       description: project.blueprint.youtube.description,
       tags: project.blueprint.youtube.tags,
-      privacy
+      privacy: uploadPrivacy
     });
 
+    await addUsage({ provider: "youtube", projectId, operation: "upload", units: { videos: 1, bytes: video.byteLength } });
+    const latest = await readDatabase();
     const record = {
       id: randomUUID(),
       projectId,
+      projectTitle: project.title,
       videoId: upload.id,
       url: `https://www.youtube.com/watch?v=${upload.id}`,
-      privacy,
+      videoPath: safeVideoPath,
+      manifestPath: project.render?.manifestPath,
+      idempotencyKey,
+      prompts: latest.prompts
+        .filter((prompt) => prompt.projectId === projectId)
+        .map((prompt) => ({
+          kind: prompt.kind,
+          prompt: prompt.prompt,
+          response: prompt.response,
+          version: prompt.version
+      })),
+      usage: latest.usage.filter((usage) => usage.projectId === projectId),
+      privacy: uploadPrivacy,
       status: "uploaded" as const,
       createdAt: new Date().toISOString()
     };
-    const latest = await readDatabase();
     latest.uploads.unshift(record);
     latest.projects = latest.projects.map((item) => (item.id === projectId ? { ...item, status: "uploaded", updatedAt: new Date().toISOString() } : item));
     await writeDatabase(latest);
-    await addUsage({ provider: "youtube", projectId, operation: "upload", units: { videos: 1, bytes: video.byteLength } });
     await updateJob(job.id, { status: "completed", message: "Video uploaded to YouTube.", result: record });
     return NextResponse.json({ upload: record });
   } catch (error) {
