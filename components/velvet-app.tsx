@@ -340,23 +340,18 @@ function SettingsWorkspace() {
             <SetupCard
               icon={<Youtube className="h-5 w-5" />}
               title="YouTube"
-              body="Used for private uploads, thumbnail upload, metadata and scheduled publishing after approval."
+              body="Connect with Google OAuth. Velvet will request permission to upload videos and read channel identity."
             >
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Google client ID" placeholder="Client ID" />
-                <Field label="Google client secret" placeholder="Client secret" secret />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Redirect URI" placeholder="http://localhost:3000/api/youtube/callback" />
-                <label className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Default privacy
-                  <select className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-[#101122] px-3 text-xs normal-case tracking-normal text-white outline-none">
-                    <option>Private</option>
-                    <option>Unlisted</option>
-                    <option>Scheduled</option>
-                  </select>
-                </label>
-              </div>
+              <Link
+                href="/api/youtube/login"
+                className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[#ff0033] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.18)]"
+              >
+                <Youtube className="h-4 w-4" />
+                Login to YouTube
+              </Link>
+              <p className="text-xs leading-5 text-[var(--text-muted)]">
+                OAuth client ID, client secret, and redirect URI live in server environment variables.
+              </p>
             </SetupCard>
 
             <SetupCard

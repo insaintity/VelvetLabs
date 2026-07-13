@@ -31,6 +31,7 @@ test.describe("Velvet Coda dashboard", () => {
     await expect(page.getByRole("heading", { name: "ChatGPT / OpenAI" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Login to YouTube" })).toHaveAttribute("href", "/api/youtube/login");
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
   });
 

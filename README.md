@@ -44,7 +44,7 @@ http://localhost:3000/dashboard
 - `/projects/new` - album brief entry
 - `/projects` - empty project library
 - `/history` - upload history and prompt archive
-- `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker setup
+- `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube login, storage, and worker setup
 
 ## Onboarding
 
@@ -52,9 +52,9 @@ Velvet is focused on:
 
 - ChatGPT/OpenAI for album planning, prompt refinement, artwork prompts, image generation, and YouTube metadata
 - ElevenLabs for music generation
-- YouTube for private uploads, thumbnails, metadata, and publishing workflows
+- YouTube login via Google OAuth for private uploads, thumbnails, metadata, and publishing workflows
 
-The current UI shows setup fields, but real secrets are not persisted yet. API keys and OAuth credentials must be encrypted and stored server-side before provider requests are enabled.
+The current UI shows setup fields, but real secrets are not persisted yet. API keys and OAuth tokens must be encrypted and stored server-side before provider requests are enabled.
 
 ## Upload History
 
@@ -102,7 +102,7 @@ Important variables include:
 - `ELEVENLABS_API_KEY`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
-- `YOUTUBE_REDIRECT_URI`
+- `YOUTUBE_REDIRECT_URI` such as `http://localhost:3000/api/youtube/callback`
 - `SUPABASE_URL`
 - `DATABASE_URL`
 - `WORKER_SECRET`

@@ -15,6 +15,8 @@ export const onboardingConfigSchema = z.object({
     clientIdEnvVar: z.string().min(1).default("GOOGLE_CLIENT_ID"),
     clientSecretEnvVar: z.string().min(1).default("GOOGLE_CLIENT_SECRET"),
     redirectUriEnvVar: z.string().min(1).default("YOUTUBE_REDIRECT_URI"),
+    loginPath: z.string().min(1).default("/api/youtube/login"),
+    callbackPath: z.string().min(1).default("/api/youtube/callback"),
     defaultPrivacy: z.enum(["private", "unlisted", "public", "scheduled"]).default("private")
   }),
   worker: z.object({
@@ -40,6 +42,8 @@ export const defaultOnboardingConfig: OnboardingConfig = {
     clientIdEnvVar: "GOOGLE_CLIENT_ID",
     clientSecretEnvVar: "GOOGLE_CLIENT_SECRET",
     redirectUriEnvVar: "YOUTUBE_REDIRECT_URI",
+    loginPath: "/api/youtube/login",
+    callbackPath: "/api/youtube/callback",
     defaultPrivacy: "private"
   },
   worker: {
