@@ -5,6 +5,8 @@ import {
   ChevronDown,
   Circle,
   Database,
+  FileText,
+  History,
   KeyRound,
   Music2,
   MoreHorizontal,
@@ -21,7 +23,7 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems, onboardingSteps, safetyDefaults, setupSteps } from "@/lib/app-data";
+import { historyColumns, historyPromptTypes, navItems, onboardingSteps, safetyDefaults, setupSteps } from "@/lib/app-data";
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 
@@ -145,6 +147,10 @@ function FreshWorkspace({ pathname }: { pathname: string }) {
     return <ProjectsWorkspace />;
   }
 
+  if (pathname === "/history") {
+    return <HistoryWorkspace />;
+  }
+
   return <DashboardWorkspace />;
 }
 
@@ -211,6 +217,69 @@ function ProjectsWorkspace() {
           Create Album
         </Link>
       </section>
+    </div>
+  );
+}
+
+function HistoryWorkspace() {
+  return (
+    <div className="velvet-scroll min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
+        <section className="panel rounded-xl p-5">
+          <SectionTitle label="Upload History" />
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+            Every uploaded album will be logged here with the exact prompts, render settings, privacy choice, YouTube link and upload result.
+          </p>
+
+          <div className="mt-5 overflow-hidden rounded-xl border border-[var(--border)] bg-black/15">
+            <div className="grid grid-cols-[1.1fr_1fr_0.7fr_0.8fr_0.7fr_0.7fr] border-b border-[var(--border)] bg-white/[0.035] px-4 py-3 text-xs uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {historyColumns.map((column) => (
+                <div key={column}>{column}</div>
+              ))}
+            </div>
+            <div className="flex min-h-[260px] flex-col items-center justify-center px-6 py-10 text-center">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
+                <History className="h-7 w-7 text-[var(--rose-soft)]" />
+              </div>
+              <h1 className="mt-4 font-serif text-[34px] leading-none">No uploads yet</h1>
+              <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
+                After an album is uploaded to YouTube, this log will show the upload record and open a complete prompt archive for that release.
+              </p>
+              <Link href="/projects/new" className="mt-5 flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-4 text-sm text-[var(--text-secondary)]">
+                Create first album
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <aside className="panel rounded-xl p-5">
+            <SectionTitle label="Prompt Archive" />
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+              Each upload keeps a readable copy of every prompt that shaped the final release.
+            </p>
+            <div className="mt-4 space-y-2">
+              {historyPromptTypes.map((type) => (
+                <div key={type} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-white/[0.035] p-3 text-sm text-[var(--text-secondary)]">
+                  <FileText className="h-4 w-4 shrink-0 text-[var(--rose-soft)]" />
+                  {type}
+                </div>
+              ))}
+            </div>
+          </aside>
+          <aside className="panel rounded-xl p-5">
+            <SectionTitle label="Stored With Upload" />
+            <div className="mt-4 space-y-3 text-sm text-[var(--text-secondary)]">
+              {["Final video URL", "YouTube video ID", "Thumbnail asset", "Render manifest", "Provider usage", "Error and retry log"].map((item) => (
+                <div key={item} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </aside>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -491,6 +560,9 @@ function getPageTitle(pathname: string) {
   }
   if (pathname === "/projects") {
     return "Projects";
+  }
+  if (pathname === "/history") {
+    return "History";
   }
   if (pathname.startsWith("/settings")) {
     return "Settings";

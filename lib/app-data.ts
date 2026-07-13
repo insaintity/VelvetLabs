@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FolderKanban, LayoutDashboard, Settings, Sparkles } from "lucide-react";
+import { FolderKanban, History, LayoutDashboard, Settings, Sparkles } from "lucide-react";
 
 export type NavItem = {
   label: string;
@@ -11,6 +11,7 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "New Album", href: "/projects/new", icon: Sparkles },
   { label: "Projects", href: "/projects", icon: FolderKanban },
+  { label: "History", href: "/history", icon: History },
   { label: "Settings", href: "/settings", icon: Settings }
 ];
 
@@ -46,4 +47,23 @@ export const safetyDefaults = [
   "Review tracks before rendering",
   "Upload privately before publishing",
   "Never run paid retries silently"
+];
+
+export const historyPromptTypes = [
+  "Album brief",
+  "Album blueprint prompt",
+  "Track music prompts",
+  "Album cover prompt",
+  "YouTube thumbnail prompt",
+  "Video background prompt",
+  "YouTube metadata prompt"
+];
+
+export const historyColumns = [
+  "Upload",
+  "Project",
+  "Privacy",
+  "Published",
+  "Prompts",
+  "Status"
 ];

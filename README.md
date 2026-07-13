@@ -22,6 +22,7 @@ Open `http://localhost:3000/dashboard`.
 - Focused onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube, storage and worker setup
 - New project brief flow at `/projects/new`
 - Empty projects and disabled player states until real albums exist
+- Upload history page with prompt archive fields for completed YouTube uploads
 - Zustand-powered player shell state
 
 ## Provider State

@@ -33,4 +33,13 @@ test.describe("Velvet Coda dashboard", () => {
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Setup" })).toBeVisible();
   });
+
+  test("shows upload history with prompt archive fields", async ({ page }) => {
+    await page.goto("/history");
+
+    await expect(page.getByRole("heading", { name: "Upload History" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No uploads yet" })).toBeVisible();
+    await expect(page.getByText("Track music prompts")).toBeVisible();
+    await expect(page.getByText("YouTube metadata prompt")).toBeVisible();
+  });
 });
