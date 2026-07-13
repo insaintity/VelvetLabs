@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { updateSetup } from "@/lib/server/db";
+import { exchangeYouTubeCode, fetchYouTubeChannel } from "@/lib/server/providers/youtube";
+import { saveSecret } from "@/lib/server/secrets";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -23,7 +26,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/settings?youtube=missing_server_config", request.url));
   }
 
-  // Token exchange and encrypted storage belong in the server-side vault layer.
-  // Keep the callback safe and explicit until persistence exists.
-  return NextResponse.redirect(new URL("/settings?youtube=authorized_pending_storage", request.url));
+  try {
+    const token = await exchangeYouTubeCode(code);
+    if (token.refresh_token) {
+      await saveSecret("youtubeRefreshToken", token.refresh_token);
+    }
+
+    const channel = await fetchYouTubeChannel(token.access_token);
+    await updateSetup({
+      youtube: {
+        channelId: channel.channelId,
+        channelTitle: channel.channelTitle,
+        status: {
+          state: "connected",
+          message: channel.channelTitle ? `Connected to ${channel.channelTitle}.` : "YouTube connected.",
+          checkedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    return NextResponse.redirect(new URL("/settings?youtube=connected", request.url));
+  } catch {
+    return NextResponse.redirect(new URL("/settings?youtube=token_exchange_failed", request.url));
+  }
 }

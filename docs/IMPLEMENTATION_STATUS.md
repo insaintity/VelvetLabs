@@ -1,6 +1,6 @@
 # Implementation Status
 
-## Phase 1
+## Current Build
 
 Implemented:
 
@@ -9,18 +9,32 @@ Implemented:
 - Velvet design tokens
 - Sidebar and top bar
 - First-launch dashboard
-- Empty projects state
-- Empty upload history page with prompt archive fields
-- Provider setup screen
-- Focused onboarding schema for ChatGPT/OpenAI, ElevenLabs, YouTube, storage and worker setup
-- YouTube login route scaffold with OAuth state validation
+- Empty-state and populated project library states
+- Upload history page backed by prompt and job records
+- Provider setup screen with persisted setup state
+- Encrypted local secret storage under `.velvet/`
+- Real OpenAI key validation
+- Real ElevenLabs key validation
+- ChatGPT/OpenAI album blueprint generation endpoint
+- Project database persisted to `.velvet/db.json`
+- Prompt/version history records
+- Job queue records for blueprint, music, render and YouTube upload work
+- ElevenLabs music generation endpoint for blueprint tracks
+- Render manifest export endpoint
+- YouTube OAuth login with state validation
+- YouTube OAuth token exchange and encrypted refresh-token storage
+- YouTube channel lookup after OAuth
+- YouTube upload endpoint using resumable uploads
 - Permanent bottom player with disabled empty state and Zustand shell state
 - New-project brief flow
 - Documentation spine
+- Playwright browser coverage
+- Vitest coverage for core utilities and encrypted storage
 
 Pending:
 
-- Playwright screenshot tests
 - Supabase persistence
-- Provider integrations
-- Durable workers
+- Durable background workers outside the request lifecycle
+- Full FFmpeg MP4 rendering
+- Provider usage/cost accounting
+- Production vault/KMS integration

@@ -8,6 +8,7 @@ playwright-report/
 *.tsbuildinfo
 .env
 .env*.local
+.velvet/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

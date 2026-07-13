@@ -2,12 +2,18 @@
 
 Velvet is an AI album foundry for creating complete jazz albums and preparing them for YouTube release.
 
-The app is currently in Phase 1: a polished first-launch studio shell with no fake albums, fake jobs, fake uploads, or simulated provider activity. It opens like a brand-new workspace and guides the user through setup before any generation workflow begins.
+The app opens like a brand-new workspace and guides the user through setup before any generation workflow begins. Provider keys and OAuth tokens are encrypted locally, and the first working backend paths are in place for setup, blueprint generation, prompt history, jobs, rendering manifests, and YouTube upload.
 
 ## What It Does
 
 - Collects a natural-language album brief.
 - Onboards the required services: ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker settings.
+- Encrypts provider secrets before local storage.
+- Validates OpenAI and ElevenLabs keys.
+- Generates album blueprints with OpenAI once setup is complete.
+- Stores projects, prompt versions, jobs, and upload records in a local project database.
+- Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
+- Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
 - Provides a fixed, no-scroll studio interface with dark midnight styling.
 - Shows empty Projects and Upload History states until real user work exists.
 - Defines the upload history surface that will preserve the prompts used for each uploaded release.
@@ -54,7 +60,7 @@ Velvet is focused on:
 - ElevenLabs for music generation
 - YouTube login via Google OAuth for private uploads, thumbnails, metadata, and publishing workflows
 
-The current UI shows setup fields, but real secrets are not persisted yet. API keys and OAuth tokens must be encrypted and stored server-side before provider requests are enabled.
+The setup UI saves keys through server routes. Secrets are encrypted with AES-GCM and stored in the gitignored `.velvet/` folder. For production, replace this local vault with a managed secret store or KMS.
 
 ## Upload History
 
@@ -109,12 +115,11 @@ Important variables include:
 
 ## Current Limitations
 
-- No provider calls are made yet.
-- API keys are not stored yet.
-- Supabase persistence is not wired yet.
-- ElevenLabs generation is not wired yet.
-- YouTube OAuth and uploads are not wired yet.
-- FFmpeg rendering is not wired yet.
+- The local `.velvet/` database is intended for development and single-user desktop use.
+- Long-running jobs are recorded, but not yet processed by a durable worker service.
+- The render endpoint creates a render manifest; full FFmpeg MP4 composition is still pending.
+- YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
+- Supabase or hosted database persistence is not wired yet.
 
 ## Design Direction
 

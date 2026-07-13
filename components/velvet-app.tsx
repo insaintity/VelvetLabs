@@ -54,6 +54,43 @@ const setupStatusItems = [
   { label: "YouTube", state: "Not connected" }
 ];
 
+type SetupForm = {
+  openaiApiKey: string;
+  elevenLabsApiKey: string;
+  planningModel: string;
+  imageModel: string;
+  musicModel: string;
+  outputFormat: string;
+  storageBucket: string;
+};
+
+type ClientStatus = {
+  state?: string;
+  message?: string;
+};
+
+type ClientProject = {
+  id: string;
+  title: string;
+  brief: string;
+  status: string;
+  createdAt: string;
+};
+
+type ClientPrompt = {
+  id: string;
+  kind: string;
+  prompt: string;
+  version: number;
+};
+
+type ClientJob = {
+  id: string;
+  type: string;
+  status: string;
+  message: string;
+};
+
 function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="panel flex min-h-0 flex-col rounded-[22px] px-4 py-6">
@@ -224,6 +261,40 @@ function DashboardWorkspace() {
 }
 
 function ProjectsWorkspace() {
+  const [projects, setProjects] = useState<ClientProject[]>([]);
+
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((response) => response.json())
+      .then((data) => setProjects(data.projects ?? []))
+      .catch(() => setProjects([]));
+  }, []);
+
+  if (projects.length > 0) {
+    return (
+      <div className="min-h-0 flex-1 overflow-hidden p-5">
+        <section className="panel h-full rounded-xl p-5">
+          <div className="flex items-center justify-between">
+            <SectionTitle label="Projects" />
+            <Link href="/projects/new" className="flex h-10 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-4 text-sm font-medium">
+              <Plus className="h-4 w-4" />
+              New Album
+            </Link>
+          </div>
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            {projects.slice(0, 6).map((project) => (
+              <article key={project.id} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.status}</div>
+                <h2 className="mt-3 line-clamp-2 font-serif text-[28px] leading-none">{project.title}</h2>
+                <p className="mt-3 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{project.brief}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-0 flex-1 p-5">
       <section className="panel flex h-full flex-col items-center justify-center rounded-xl p-8 text-center">
@@ -244,6 +315,20 @@ function ProjectsWorkspace() {
 }
 
 function HistoryWorkspace() {
+  const [prompts, setPrompts] = useState<ClientPrompt[]>([]);
+  const [jobs, setJobs] = useState<ClientJob[]>([]);
+
+  useEffect(() => {
+    fetch("/api/prompts")
+      .then((response) => response.json())
+      .then((data) => setPrompts(data.prompts ?? []))
+      .catch(() => setPrompts([]));
+    fetch("/api/jobs")
+      .then((response) => response.json())
+      .then((data) => setJobs(data.jobs ?? []))
+      .catch(() => setJobs([]));
+  }, []);
+
   return (
     <div className="min-h-0 flex-1 overflow-hidden p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
@@ -282,7 +367,7 @@ function HistoryWorkspace() {
               Each upload keeps a readable copy of every prompt that shaped the final release.
             </p>
             <div className="mt-4 space-y-2">
-              {historyPromptTypes.map((type) => (
+              {(prompts.length > 0 ? prompts.slice(0, 7).map((prompt) => `${prompt.kind} v${prompt.version}`) : historyPromptTypes).map((type) => (
                 <div key={type} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-white/[0.035] p-3 text-sm text-[var(--text-secondary)]">
                   <FileText className="h-4 w-4 shrink-0 text-[var(--rose-soft)]" />
                   {type}
@@ -293,7 +378,7 @@ function HistoryWorkspace() {
           <aside className="panel rounded-xl p-5">
             <SectionTitle label="Stored With Upload" />
             <div className="mt-4 space-y-3 text-sm text-[var(--text-secondary)]">
-              {["Final video URL", "YouTube video ID", "Thumbnail asset", "Render manifest", "Provider usage", "Error and retry log"].map((item) => (
+              {(jobs.length > 0 ? jobs.slice(0, 6).map((job) => `${job.type}: ${job.message}`) : ["Final video URL", "YouTube video ID", "Thumbnail asset", "Render manifest", "Provider usage", "Error and retry log"]).map((item) => (
                 <div key={item} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
                   {item}
                 </div>
@@ -310,10 +395,75 @@ function SettingsWorkspace() {
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
   const [activeSetupStep, setActiveSetupStep] = useState<"services" | "youtube" | "review">("services");
   const [savedNotice, setSavedNotice] = useState(false);
+  const [setupMessage, setSetupMessage] = useState("Keys are encrypted before being stored locally.");
+  const [providerStatus, setProviderStatus] = useState<Record<string, ClientStatus>>({});
+  const [setupForm, setSetupForm] = useState<SetupForm>({
+    openaiApiKey: "",
+    elevenLabsApiKey: "",
+    planningModel: "gpt-4.1",
+    imageModel: "gpt-image-1",
+    musicModel: "eleven-music",
+    outputFormat: "mp3_44100_128",
+    storageBucket: "velvet-assets"
+  });
 
   useEffect(() => {
     setYoutubeStatus(new URLSearchParams(window.location.search).get("youtube"));
+    fetch("/api/setup")
+      .then((response) => response.json())
+      .then((data) => {
+        const setup = data.setup ?? {};
+        setProviderStatus({
+          openai: setup.openai?.status,
+          elevenlabs: setup.elevenlabs?.status,
+          youtube: setup.youtube?.status,
+          worker: setup.worker?.status
+        });
+        setSetupForm((current) => ({
+          ...current,
+          planningModel: setup.openai?.planningModel ?? current.planningModel,
+          imageModel: setup.openai?.imageModel ?? current.imageModel,
+          musicModel: setup.elevenlabs?.musicModel ?? current.musicModel,
+          outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
+          storageBucket: setup.worker?.storageBucket ?? current.storageBucket
+        }));
+      })
+      .catch(() => setSetupMessage("Setup status is unavailable."));
   }, []);
+
+  function updateSetupForm(field: keyof SetupForm, value: string) {
+    setSetupForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveSetup() {
+    setSetupMessage("Saving encrypted setup...");
+    const response = await fetch("/api/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(setupForm)
+    });
+    const data = await response.json();
+    setProviderStatus({
+      openai: data.setup?.openai?.status,
+      elevenlabs: data.setup?.elevenlabs?.status,
+      youtube: data.setup?.youtube?.status,
+      worker: data.setup?.worker?.status
+    });
+    setSavedNotice(response.ok);
+    setSetupMessage(response.ok ? "Setup saved. Run tests to verify provider keys." : "Setup could not be saved.");
+  }
+
+  async function validateProvider(provider: "openai" | "elevenlabs") {
+    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : "ElevenLabs"}...`);
+    const response = await fetch("/api/setup/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider })
+    });
+    const data = await response.json();
+    setProviderStatus((current) => ({ ...current, [provider]: data.status }));
+    setSetupMessage(data.status?.message ?? (response.ok ? "Provider is ready." : "Provider check failed."));
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-hidden p-4">
@@ -366,19 +516,22 @@ function SettingsWorkspace() {
                     label="OpenAI API key"
                     placeholder="sk-..."
                     secret
+                    value={setupForm.openaiApiKey}
+                    onChange={(value) => updateSetupForm("openaiApiKey", value)}
                     help="Used for album planning, prompt rewriting, artwork prompts, and metadata."
                   />
                   <div className="flex gap-2">
-                    <button className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                    <button onClick={() => validateProvider("openai")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                       Test ChatGPT key
                     </button>
                     <AdvancedSetup label="Model defaults">
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="Planning model" placeholder="Velvet decides" />
-                        <Field label="Image model" placeholder="Velvet decides" />
+                        <Field label="Planning model" placeholder="Velvet decides" value={setupForm.planningModel} onChange={(value) => updateSetupForm("planningModel", value)} />
+                        <Field label="Image model" placeholder="Velvet decides" value={setupForm.imageModel} onChange={(value) => updateSetupForm("imageModel", value)} />
                       </div>
                     </AdvancedSetup>
                   </div>
+                  <StatusLine status={providerStatus.openai} />
                 </SetupCard>
 
                 <SetupCard
@@ -387,18 +540,26 @@ function SettingsWorkspace() {
                   body="Used only when approved track prompts are ready for music generation."
                   status="Not checked"
                 >
-                  <Field label="ElevenLabs API key" placeholder="Enter key" secret help="Used only after you approve track prompts." />
+                  <Field
+                    label="ElevenLabs API key"
+                    placeholder="Enter key"
+                    secret
+                    value={setupForm.elevenLabsApiKey}
+                    onChange={(value) => updateSetupForm("elevenLabsApiKey", value)}
+                    help="Used only after you approve track prompts."
+                  />
                   <div className="flex gap-2">
-                    <button className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                    <button onClick={() => validateProvider("elevenlabs")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                       Test ElevenLabs key
                     </button>
                     <AdvancedSetup label="Music defaults">
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="Music model" placeholder="Velvet decides" />
-                        <Field label="Output format" placeholder="Velvet decides" />
+                        <Field label="Music model" placeholder="Velvet decides" value={setupForm.musicModel} onChange={(value) => updateSetupForm("musicModel", value)} />
+                        <Field label="Output format" placeholder="Velvet decides" value={setupForm.outputFormat} onChange={(value) => updateSetupForm("outputFormat", value)} />
                       </div>
                     </AdvancedSetup>
                   </div>
+                  <StatusLine status={providerStatus.elevenlabs} />
                 </SetupCard>
               </div>
             ) : null}
@@ -430,8 +591,8 @@ function SettingsWorkspace() {
                       <Youtube className="h-5 w-5 text-[var(--text-muted)]" />
                     </div>
                     <div>
-                      <div className="text-sm text-[var(--text-secondary)]">Not connected</div>
-                      <div className="text-xs text-[var(--text-muted)]">Channel name and handle appear here.</div>
+                      <div className="text-sm text-[var(--text-secondary)]">{providerStatus.youtube?.state === "connected" ? "Connected" : "Not connected"}</div>
+                      <div className="text-xs text-[var(--text-muted)]">{providerStatus.youtube?.message ?? "Channel name and handle appear here."}</div>
                     </div>
                   </div>
                 </div>
@@ -448,8 +609,8 @@ function SettingsWorkspace() {
                 >
                   <AdvancedSetup label="Storage and worker settings">
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Supabase URL" placeholder="https://..." help="Where project data and storage access will live." />
-                      <Field label="Storage bucket" placeholder="velvet-assets" help="Where audio, artwork, renders, logs, and metadata will be stored." />
+                      <Field label="Supabase URL" placeholder="Optional later" help="Local encrypted storage is active now; Supabase can be wired later." />
+                      <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Where audio, artwork, renders, logs, and metadata will be stored." />
                       <Field label="Database URL" placeholder="postgres://..." secret />
                       <Field label="Worker secret" placeholder="Enter secret" secret help="Used to verify long-running background job requests." />
                     </div>
@@ -486,7 +647,7 @@ function SettingsWorkspace() {
             </p>
             </div>
             <button
-              onClick={() => setSavedNotice(true)}
+              onClick={saveSetup}
               className="h-10 shrink-0 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium"
               title="Stores configuration after backend secret storage is enabled."
             >
@@ -495,7 +656,7 @@ function SettingsWorkspace() {
           </div>
           {savedNotice ? (
             <div className="mt-2 rounded-lg border border-[rgba(88,182,168,0.22)] bg-[rgba(88,182,168,0.06)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-              Setup draft noted. Persistent encrypted storage is the next backend step.
+              {setupMessage}
             </div>
           ) : null}
 
@@ -547,6 +708,10 @@ function YouTubeStatusNotice({ status }: { status: string }) {
       ? "YouTube login needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and YOUTUBE_REDIRECT_URI in the server environment."
       : status === "authorized_pending_storage"
         ? "YouTube authorized successfully. Token exchange and encrypted storage are the next backend step."
+        : status === "connected"
+          ? "YouTube connected successfully. Refresh token stored encrypted."
+          : status === "token_exchange_failed"
+            ? "YouTube authorized, but token exchange failed. Check the OAuth client and redirect URI."
         : status === "invalid_state"
           ? "YouTube login could not be verified. Please try again."
           : "YouTube login was not completed.";
@@ -559,6 +724,34 @@ function YouTubeStatusNotice({ status }: { status: string }) {
 }
 
 function NewProjectFlow() {
+  const [brief, setBrief] = useState("");
+  const [message, setMessage] = useState("Blueprint generation uses your encrypted OpenAI key after setup.");
+  const [isCreating, setIsCreating] = useState(false);
+
+  async function createBlueprint() {
+    setIsCreating(true);
+    setMessage("Creating blueprint...");
+
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Blueprint generation failed.");
+      }
+
+      setMessage(`Blueprint created: ${data.project.title}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Blueprint generation failed.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   return (
     <div className="min-h-0 flex-1 overflow-hidden p-5">
       <div className="mx-auto grid max-w-[1120px] grid-cols-[1fr_340px] gap-5">
@@ -569,13 +762,20 @@ function NewProjectFlow() {
             Keep it simple. Mood, instrumentation, length and intended YouTube style are enough to begin.
           </p>
           <textarea
+            value={brief}
+            onChange={(event) => setBrief(event.target.value)}
             className="mt-5 min-h-[250px] w-full resize-none rounded-xl border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
             placeholder="Example: A moody late-night jazz album with slow saxophone, intimate piano and brushed drums. Instrumental, cinematic, elegant, and made for a long-form YouTube release."
             aria-label="Album brief"
           />
-          <div className="mt-5 flex justify-end">
-            <button className="flex h-12 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 font-medium">
-              Create Blueprint
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <p className="text-xs leading-5 text-[var(--text-muted)]">{message}</p>
+            <button
+              onClick={createBlueprint}
+              disabled={isCreating}
+              className="flex h-12 shrink-0 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isCreating ? "Creating..." : "Create Blueprint"}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -649,16 +849,28 @@ function AdvancedSetup({ label, children }: { label: string; children: React.Rea
   );
 }
 
+function StatusLine({ status }: { status?: ClientStatus }) {
+  if (!status?.message) {
+    return null;
+  }
+
+  return <p className="text-xs leading-5 text-[var(--text-muted)]">{status.message}</p>;
+}
+
 function Field({
   label,
   placeholder,
   secret = false,
-  help
+  help,
+  value,
+  onChange
 }: {
   label: string;
   placeholder: string;
   secret?: boolean;
   help?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   return (
     <label className="block text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
@@ -672,6 +884,8 @@ function Field({
       </span>
       <input
         type={secret ? "password" : "text"}
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
         className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-black/15 px-3 text-xs normal-case tracking-normal text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
         placeholder={placeholder}
       />
