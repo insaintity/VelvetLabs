@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     },
     worker: {
       supabaseUrl: body.supabaseUrl || undefined,
+      supabasePublishableKey: body.supabasePublishableKey || undefined,
       storageBucket: body.storageBucket || "velvet-assets",
       status: { state: "valid", message: "Local storage is ready." },
       databaseStatus: {

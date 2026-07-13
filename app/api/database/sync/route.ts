@@ -20,6 +20,8 @@ export async function POST(request: Request) {
     await updateSetup({
       worker: {
         ...database.setup.worker,
+        supabaseUrl: database.setup.worker?.supabaseUrl,
+        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
         storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
         status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
         databaseStatus: {

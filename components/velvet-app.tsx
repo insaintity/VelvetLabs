@@ -62,6 +62,7 @@ type SetupForm = {
   musicModel: string;
   outputFormat: string;
   supabaseUrl: string;
+  supabasePublishableKey: string;
   databaseUrl: string;
   storageBucket: string;
   workerSecret: string;
@@ -726,6 +727,7 @@ function SettingsWorkspace() {
     musicModel: "eleven-music",
     outputFormat: "mp3_44100_128",
     supabaseUrl: "",
+    supabasePublishableKey: "",
     databaseUrl: "",
     storageBucket: "velvet-assets",
     workerSecret: ""
@@ -751,6 +753,7 @@ function SettingsWorkspace() {
           musicModel: setup.elevenlabs?.musicModel ?? current.musicModel,
           outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
           supabaseUrl: setup.worker?.supabaseUrl ?? current.supabaseUrl,
+          supabasePublishableKey: setup.worker?.supabasePublishableKey ?? current.supabasePublishableKey,
           storageBucket: setup.worker?.storageBucket ?? current.storageBucket
         }));
       })
@@ -957,6 +960,7 @@ function SettingsWorkspace() {
                   <AdvancedSetup label="Storage and worker settings">
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Supabase URL" placeholder="https://project.supabase.co" value={setupForm.supabaseUrl} onChange={(value) => updateSetupForm("supabaseUrl", value)} help="Used as the Supabase project reference for future storage/API wiring." />
+                      <Field label="Publishable key" placeholder="sb_publishable_..." value={setupForm.supabasePublishableKey} onChange={(value) => updateSetupForm("supabasePublishableKey", value)} help="Safe client-side Supabase key for future storage and auth flows." />
                       <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Where audio, artwork, renders, logs, and metadata will be stored." />
                       <Field label="Database URL" placeholder="postgres://..." secret value={setupForm.databaseUrl} onChange={(value) => updateSetupForm("databaseUrl", value)} help="Saved encrypted. Use the Supabase pooled or direct Postgres connection string." />
                       <Field label="Worker secret" placeholder="Enter secret" secret value={setupForm.workerSecret} onChange={(value) => updateSetupForm("workerSecret", value)} help="Used to verify long-running background job requests." />

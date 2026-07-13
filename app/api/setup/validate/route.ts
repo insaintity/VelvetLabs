@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       const setup = await updateSetup({
         worker: {
           supabaseUrl: database.setup.worker?.supabaseUrl,
+          supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
           storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
           status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
           databaseStatus: { state: "missing", message: "Add a Supabase/Postgres database URL first.", checkedAt: now }
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     const setup = await updateSetup({
       worker: {
         supabaseUrl: database.setup.worker?.supabaseUrl,
+        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
         storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
         status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
         databaseStatus: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now }

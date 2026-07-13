@@ -24,6 +24,7 @@ export type SetupRecord = {
   };
   worker?: {
     supabaseUrl?: string;
+    supabasePublishableKey?: string;
     storageBucket: string;
     status: ProviderStatus;
     databaseStatus?: ProviderStatus;
