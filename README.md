@@ -12,6 +12,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Validates OpenAI and ElevenLabs keys.
 - Lets users provide their own Supabase/Postgres database URL and validates the connection.
 - Initializes `velvet_*` tables in a user-provided Supabase/Postgres database and syncs local records into them.
+- Includes a Supabase CLI migration for the Velvet schema.
 - Generates album blueprints with OpenAI once setup is complete.
 - Provides a project review screen for approving blueprints before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.

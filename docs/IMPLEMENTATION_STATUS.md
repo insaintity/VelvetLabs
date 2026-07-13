@@ -15,6 +15,8 @@ Implemented:
 - Encrypted local secret storage under `.velvet/`
 - User-provided Supabase/Postgres database URL storage and validation
 - Supabase/Postgres schema initialization and local-record sync
+- Supabase CLI project linked to `tivxgfblnzwfwtynbbuu`
+- Velvet schema migration applied remotely
 - Real OpenAI key validation
 - Real ElevenLabs key validation
 - ChatGPT/OpenAI album blueprint generation endpoint
