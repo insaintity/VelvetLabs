@@ -4,6 +4,9 @@ import {
   ArrowRight,
   ChevronDown,
   Circle,
+  Code2,
+  Cpu,
+  ExternalLink,
   KeyRound,
   MoreHorizontal,
   Pause,
@@ -18,7 +21,7 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems, preferenceDefaults, setupSteps } from "@/lib/app-data";
+import { aiConnectors, mediaConnectors, navItems, preferenceDefaults, setupSteps } from "@/lib/app-data";
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 
@@ -74,7 +77,7 @@ function Sidebar({ pathname }: { pathname: string }) {
       <div className="space-y-3">
         <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
           <div className="mb-3 text-[11px] font-semibold tracking-[0.18em] text-[var(--text-muted)]">SETUP</div>
-          {["OpenAI", "ElevenLabs", "YouTube"].map((service) => (
+          {["AI provider", "Music provider", "Publishing"].map((service) => (
             <div key={service} className="mb-2 flex items-center justify-between text-xs text-[var(--text-secondary)] last:mb-0">
               <span>{service}</span>
               <span className="rounded-full border border-[var(--border)] bg-black/10 px-2 py-0.5 text-[var(--text-muted)]">Not connected</span>
@@ -168,7 +171,7 @@ function DashboardWorkspace() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/settings" className="flex h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-5 text-[var(--text-secondary)]">
-              Connect Providers
+              Connect AI
             </Link>
           </div>
         </div>
@@ -217,29 +220,94 @@ function SettingsWorkspace() {
     <div className="velvet-scroll min-h-0 flex-1 overflow-y-auto p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
         <section className="panel rounded-xl p-5">
-          <SectionTitle label="Provider Setup" />
-          <div className="mt-4 space-y-3">
-            {["OpenAI", "ElevenLabs", "YouTube"].map((provider) => (
-              <div key={provider} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-white/[0.035] p-4">
-                <div>
-                  <div className="font-medium">{provider}</div>
-                  <div className="mt-1 text-sm text-[var(--text-muted)]">Not connected</div>
+          <SectionTitle label="AI Access" />
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+            Velvet Coda should work with whatever serious AI access the studio already has: official APIs, OpenAI-compatible hosts or local CLI tools. Connections are empty until a real server-side secret store and worker runner are wired in.
+          </p>
+          <div className="mt-5 rounded-xl border border-[var(--border)] bg-black/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Code2 className="h-4 w-4 text-[var(--rose-soft)]" />
+              Add AI connection
+            </div>
+            <div className="mt-4 grid grid-cols-[1fr_180px] gap-3">
+              <label className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Name
+                <input className="mt-2 h-10 w-full rounded-lg border border-[var(--border)] bg-white/[0.035] px-3 text-sm normal-case tracking-normal text-white outline-none" placeholder="Claude CLI, OpenAI, local model..." />
+              </label>
+              <label className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Method
+                <select className="mt-2 h-10 w-full rounded-lg border border-[var(--border)] bg-[#101122] px-3 text-sm normal-case tracking-normal text-white outline-none">
+                  <option>API key</option>
+                  <option>OpenAI-compatible endpoint</option>
+                  <option>Local CLI command</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <input className="h-10 rounded-lg border border-[var(--border)] bg-white/[0.035] px-3 text-sm text-white outline-none" placeholder="Model name" />
+              <input className="h-10 rounded-lg border border-[var(--border)] bg-white/[0.035] px-3 text-sm text-white outline-none" placeholder="Base URL or command" />
+              <input className="h-10 rounded-lg border border-[var(--border)] bg-white/[0.035] px-3 text-sm text-white outline-none" placeholder="Secret env var name" />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+              <span>Store references like ANTHROPIC_API_KEY or OPENAI_API_KEY, not raw secrets, until the vault is implemented.</span>
+              <button className="h-9 shrink-0 rounded-lg border border-[var(--border)] bg-white/[0.05] px-4 text-sm text-[var(--text-secondary)]">
+                Save Draft
+              </button>
+            </div>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {aiConnectors.map((provider) => (
+              <div key={provider.name} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{provider.name}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{provider.kind}</div>
+                  </div>
+                  <Cpu className="h-5 w-5 text-[var(--text-muted)]" />
                 </div>
-                <button className="rounded-lg border border-[var(--border)] bg-black/10 px-4 py-2 text-sm text-[var(--text-secondary)]">Connect</button>
+                <p className="mt-3 min-h-[42px] text-sm leading-5 text-[var(--text-muted)]">{provider.detail}</p>
+                <button className="mt-4 h-9 rounded-lg border border-[var(--border)] bg-black/10 px-4 text-sm text-[var(--text-secondary)]">
+                  Configure
+                </button>
               </div>
             ))}
+          </div>
+          <div className="mt-5 rounded-xl border border-[rgba(239,99,152,0.22)] bg-[rgba(239,99,152,0.06)] p-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <KeyRound className="h-4 w-4 text-[var(--rose-soft)]" />
+              Server-side only
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              API keys, bearer tokens and CLI credentials must be stored outside the browser. The UI can collect connection intent now; the secure vault and worker execution layer come next.
+            </p>
           </div>
         </section>
-        <aside className="panel rounded-xl p-5">
-          <SectionTitle label="Safety Defaults" />
-          <div className="mt-4 space-y-3">
-            {preferenceDefaults.map((item) => (
-              <div key={item} className="flex gap-3 rounded-lg border border-[var(--border)] bg-white/[0.035] p-3 text-sm text-[var(--text-secondary)]">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
-                {item}
-              </div>
-            ))}
-          </div>
+        <aside className="space-y-4">
+          <aside className="panel rounded-xl p-5">
+            <SectionTitle label="Media & Publishing" />
+            <div className="mt-4 space-y-3">
+              {mediaConnectors.map((item) => (
+                <div key={item.name} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
+                  <div className="flex items-center justify-between gap-3 text-sm font-medium">
+                    {item.name}
+                    <ExternalLink className="h-4 w-4 text-[var(--text-muted)]" />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </aside>
+          <aside className="panel rounded-xl p-5">
+            <SectionTitle label="Safety Defaults" />
+            <div className="mt-4 space-y-3">
+              {preferenceDefaults.map((item) => (
+                <div key={item} className="flex gap-3 rounded-lg border border-[var(--border)] bg-white/[0.035] p-3 text-sm text-[var(--text-secondary)]">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </aside>
         </aside>
       </div>
     </div>
@@ -270,7 +338,7 @@ function NewProjectFlow() {
         </section>
         <aside className="space-y-4">
           <EmptyPanel title="Optional" body="After the brief, Velvet Coda can ask for length, track count, vocals and workflow mode only if needed." />
-          <EmptyPanel title="Before generation" body="You will review the blueprint first. Paid provider requests stay blocked until approved." />
+          <EmptyPanel title="Before generation" body="You will review the blueprint first. API and CLI provider calls stay blocked until approved." />
         </aside>
       </div>
     </div>

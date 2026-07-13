@@ -29,3 +29,5 @@ Never replace the interface with:
 Build in controlled phases. Do not begin paid provider calls until the interface, data model and workflow are stable.
 
 The product should open as a brand-new studio unless real user data exists. Avoid seeded projects, fake completed jobs, fake provider statuses, fake audio and fake usage metrics.
+
+Do not assume OpenAI is the only AI runtime. Velvet Coda should allow users to connect any usable AI API or CLI they already have access to, including OpenAI/ChatGPT, Claude, OpenAI-compatible endpoints, local model commands and custom wrappers.
