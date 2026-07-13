@@ -6,7 +6,7 @@ Implemented:
 
 - Repository scaffold
 - Next.js app shell
-- Velvet Coda design tokens
+- Velvet design tokens
 - Sidebar and top bar
 - First-launch dashboard
 - Empty projects state

@@ -49,9 +49,14 @@ function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="panel flex min-h-0 flex-col rounded-[22px] px-4 py-6">
       <div className="px-3">
-        <Link href="/dashboard" className="block">
-          <div className="font-serif text-[38px] leading-none tracking-wide text-[#f4edf4]">Velvet Coda</div>
-          <div className="mt-2 text-sm font-medium tracking-[0.18em] text-[var(--rose-soft)]">AI ALBUM FOUNDRY</div>
+        <Link href="/dashboard" className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[rgba(239,99,152,0.32)] bg-[linear-gradient(145deg,rgba(239,99,152,0.16),rgba(74,110,232,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_28px_rgba(239,99,152,0.08)]">
+            <span className="font-serif text-[28px] leading-none text-[#f7eef5]">V</span>
+          </div>
+          <div>
+            <div className="font-serif text-[38px] leading-none tracking-wide text-[#f4edf4]">Velvet</div>
+            <div className="mt-2 text-sm font-medium tracking-[0.18em] text-[var(--rose-soft)]">AI ALBUM FOUNDRY</div>
+          </div>
         </Link>
       </div>
 
@@ -166,7 +171,7 @@ function DashboardWorkspace() {
           </div>
           <h1 className="font-serif text-[64px] leading-[0.95] text-white">Create your first AI jazz album.</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)]">
-            Start with a short album brief. Velvet Coda will prepare a blueprint for review before any generation, rendering or upload work begins.
+            Start with a short album brief. Velvet will prepare a blueprint for review before any generation, rendering or upload work begins.
           </p>
           <div className="mt-7 flex gap-3">
             <Link
@@ -291,7 +296,7 @@ function SettingsWorkspace() {
         <section className="panel rounded-xl p-4">
           <SectionTitle label="Onboarding" />
           <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--text-secondary)]">
-            Connect the minimum services Velvet Coda needs: ChatGPT for creative planning, ElevenLabs for music, and YouTube for private review uploads. Secrets are shown here as setup fields only until the secure server-side vault is implemented.
+            Connect the minimum services Velvet needs: ChatGPT for creative planning, ElevenLabs for music, and YouTube for private review uploads. Secrets are shown here as setup fields only until the secure server-side vault is implemented.
           </p>
 
           <div className="mt-3 grid grid-cols-5 gap-2">
@@ -439,7 +444,7 @@ function NewProjectFlow() {
           </div>
         </section>
         <aside className="space-y-4">
-          <EmptyPanel title="Optional" body="After the brief, Velvet Coda can ask for length, track count, vocals and workflow mode only if needed." />
+          <EmptyPanel title="Optional" body="After the brief, Velvet can ask for length, track count, vocals and workflow mode only if needed." />
           <EmptyPanel title="Before generation" body="You will review the blueprint first. ChatGPT and ElevenLabs calls stay blocked until approved." />
         </aside>
       </div>

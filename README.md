@@ -1,6 +1,6 @@
-# Velvet Coda
+# Velvet
 
-Velvet Coda is an AI album foundry for creating complete jazz albums and preparing them for YouTube release.
+Velvet is an AI album foundry for creating complete jazz albums and preparing them for YouTube release.
 
 The app is currently in Phase 1: a polished first-launch studio shell with no fake albums, fake jobs, fake uploads, or simulated provider activity. It opens like a brand-new workspace and guides the user through setup before any generation workflow begins.
 
@@ -48,7 +48,7 @@ http://localhost:3000/dashboard
 
 ## Onboarding
 
-Velvet Coda is focused on:
+Velvet is focused on:
 
 - ChatGPT/OpenAI for album planning, prompt refinement, artwork prompts, image generation, and YouTube metadata
 - ElevenLabs for music generation

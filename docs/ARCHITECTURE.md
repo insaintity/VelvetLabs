@@ -1,6 +1,6 @@
 # Architecture
 
-Velvet Coda is planned as a monorepo with a Next.js studio app, durable workers and shared packages for database, AI, integrations, media and UI. Phase 1 keeps the code in a single app while preserving boundaries in documentation and types.
+Velvet is planned as a monorepo with a Next.js studio app, durable workers and shared packages for database, AI, integrations, media and UI. Phase 1 keeps the code in a single app while preserving boundaries in documentation and types.
 
 Future structure:
 

@@ -1,6 +1,6 @@
-# Velvet Coda Agent Notes
+# Velvet Agent Notes
 
-The attached Velvet Coda dashboard image is the visual source of truth.
+The attached Velvet dashboard image is the visual source of truth.
 
 Preserve:
 
