@@ -245,7 +245,7 @@ function DashboardWorkspace() {
             <Sparkles className="h-3.5 w-3.5" />
             First launch
           </div>
-          <h1 className="font-serif text-[64px] leading-[0.95] text-white">Create your first AI jazz album.</h1>
+          <h1 className="font-serif text-[64px] leading-[0.95] text-white">Create your first AI music album.</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)]">
             Start with a short album brief. Velvet will prepare a blueprint for review before any generation, rendering or upload work begins.
           </p>
