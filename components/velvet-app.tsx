@@ -176,14 +176,17 @@ function DashboardWorkspace() {
           </p>
           <div className="mt-7 flex gap-3">
             <Link
-              href="/projects/new"
+              href="/settings"
               className="flex h-12 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 font-medium"
             >
-              Create Album
+              Start Setup
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/settings" className="flex h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-5 text-[var(--text-secondary)]">
-              Start Setup
+            <Link
+              href="/projects/new"
+              className="flex h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-5 text-[var(--text-muted)]"
+            >
+              Create Album After Setup
             </Link>
           </div>
         </div>
@@ -199,7 +202,7 @@ function DashboardWorkspace() {
       </section>
 
       <aside className="space-y-4">
-        <EmptyPanel title="Current Project" body="No album has been created yet." action="Start with a brief" href="/projects/new" />
+        <EmptyPanel title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
         <EmptyPanel title="Generation Queue" body="Queue is empty. Tracks appear here after a blueprint is approved." />
         <EmptyPanel title="Publishing" body="YouTube publishing is unavailable until a channel is connected." href="/settings/youtube" action="Connect YouTube" />
       </aside>

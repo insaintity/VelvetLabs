@@ -6,7 +6,9 @@ test.describe("Velvet Coda dashboard", () => {
 
     await expect(page.getByRole("link", { name: "V Velvet AI ALBUM FOUNDRY" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create your first AI jazz album." })).toBeVisible();
-    await expect(page.getByText("No album has been created yet.")).toBeVisible();
+    await expect(page.getByText("Connect ChatGPT, ElevenLabs, and YouTube before creating the first album.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Start Setup" }).first()).toHaveAttribute("href", "/settings");
+    await expect(page.getByRole("link", { name: "Create Album After Setup" })).toHaveAttribute("href", "/projects/new");
     await expect(page.getByRole("button", { name: /Play|Pause/ })).toBeVisible();
 
     const screenshot = await page.screenshot({ fullPage: true });

@@ -28,7 +28,7 @@ export const setupSteps = [
   },
   {
     title: "Connect YouTube",
-    body: "Add Google OAuth details so Velvet Coda can upload privately when the album is ready.",
+    body: "Login with YouTube so private review uploads are available when the album is ready.",
     href: "/settings"
   }
 ];
