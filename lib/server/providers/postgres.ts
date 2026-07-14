@@ -188,13 +188,11 @@ export async function readVelvetDatabase(connectionString: string): Promise<Velv
   await client.connect();
 
   try {
-    const [projects, prompts, jobs, uploads, usage] = await Promise.all([
-      client.query("select payload from velvet_projects order by created_at desc"),
-      client.query("select payload from velvet_prompts order by created_at desc"),
-      client.query("select payload from velvet_jobs order by created_at desc"),
-      client.query("select payload from velvet_uploads order by created_at desc"),
-      client.query("select payload from velvet_usage order by created_at desc")
-    ]);
+    const projects = await client.query("select payload from velvet_projects order by created_at desc");
+    const prompts = await client.query("select payload from velvet_prompts order by created_at desc");
+    const jobs = await client.query("select payload from velvet_jobs order by created_at desc");
+    const uploads = await client.query("select payload from velvet_uploads order by created_at desc");
+    const usage = await client.query("select payload from velvet_usage order by created_at desc");
 
     return {
       setup: {},
