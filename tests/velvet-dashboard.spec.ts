@@ -42,7 +42,13 @@ async function writeFixtureDatabase() {
                 tags: ["jazz", "ai music"]
               }
             },
-            generatedTracks: [{ title: "Amber Masque", filePath: ".velvet/exports/amber-masque.mp3", durationSeconds: 180 }]
+            generatedTracks: [{ title: "Amber Masque", filePath: ".velvet/exports/amber-masque.mp3", durationSeconds: 180 }],
+            render: {
+              status: "rendered",
+              message: "Rendered and ready to publish.",
+              manifestPath: ".velvet/exports/playwright-blueprint/render-manifest.json",
+              videoPath: ".velvet/exports/playwright-blueprint/midnight-velvet.mp4"
+            }
           }
         ],
         prompts: [],
@@ -144,6 +150,43 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("YouTube metadata prompt")).toBeVisible();
   });
 
+  test("schedules rendered media with a readable studio control", async ({ page }) => {
+    await writeFixtureDatabase();
+    await page.goto("/publishing");
+
+    await expect(page.getByRole("heading", { name: "Upload scheduler" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Rendered release" })).toContainText("Midnight Velvet");
+    await expect(page.getByLabel("Publish time")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Schedule upload" })).toBeEnabled();
+    await expect(page.getByRole("link", { name: "Scheduler" })).toHaveClass(/border-\[var\(--border-active\)\]/);
+  });
+
+  test("reports prior YouTube upload outcomes", async ({ page }) => {
+    await page.route("**/api/analytics/uploads", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        summary: { successfulUploads: 4, failedUploads: 1, scheduledUploads: 2, successRate: 80, publicUploads: 1, unlistedUploads: 2, privateUploads: 1 },
+        months: [
+          { key: "2026-02", label: "Feb", success: 0, failed: 0 },
+          { key: "2026-03", label: "Mar", success: 0, failed: 0 },
+          { key: "2026-04", label: "Apr", success: 0, failed: 0 },
+          { key: "2026-05", label: "May", success: 1, failed: 0 },
+          { key: "2026-06", label: "Jun", success: 1, failed: 1 },
+          { key: "2026-07", label: "Jul", success: 2, failed: 0 }
+        ],
+        uploads: [{ id: "upload-1", projectId: fixtureProjectId, projectTitle: "Midnight Velvet", url: "https://youtube.com/watch?v=velvet", privacy: "unlisted", status: "uploaded", createdAt: "2026-07-13T00:00:00.000Z" }],
+        failures: [{ id: "failed-1", projectId: fixtureProjectId, message: "YouTube quota unavailable.", createdAt: "2026-06-13T00:00:00.000Z" }]
+      })
+    }));
+    await page.goto("/analytics");
+
+    await expect(page.getByRole("heading", { name: "Upload analytics" })).toBeVisible();
+    await expect(page.getByText("80%")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Midnight Velvet" })).toBeVisible();
+    await expect(page.getByText("YouTube quota unavailable.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Analytics" })).toHaveClass(/border-\[var\(--border-active\)\]/);
+  });
+
   test("shows a project-shaped loader instead of flashing the empty library", async ({ page }) => {
     await page.route("**/api/projects", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -223,7 +266,7 @@ test.describe("Velvet dashboard", () => {
 
   test("keeps primary pages inside the fixed studio frame", async ({ page }) => {
     await writeFixtureDatabase();
-    for (const path of ["/dashboard", "/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/history", "/settings"]) {
+    for (const path of ["/dashboard", "/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/publishing", "/analytics", "/history", "/settings"]) {
       await page.goto(path);
       const hasScroll = await page.evaluate(() => {
         const root = document.scrollingElement ?? document.documentElement;

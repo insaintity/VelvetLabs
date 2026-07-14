@@ -46,6 +46,7 @@ import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 import { CommandPalette, ProjectArtwork, StatusPill, Waveform } from "@/components/studio-chrome";
 import { CreativeVariantsDrawer, emitToast, GenerationDrawer, ReferenceUploader, SequenceDrawer, ToastHost, TrackAuditionDrawer, type StudioProduction, type StudioTrack } from "@/components/project-studio-tools";
+import { AnalyticsWorkspace, PublishingWorkspace } from "@/components/publishing-workspaces";
 
 export function VelvetApp() {
   const pathname = usePathname();
@@ -355,6 +356,14 @@ function FreshWorkspace({ pathname, setup }: { pathname: string; setup: SetupOve
 
   if (pathname === "/projects") {
     return <ProjectsWorkspace />;
+  }
+
+  if (pathname === "/publishing") {
+    return <PublishingWorkspace />;
+  }
+
+  if (pathname === "/analytics") {
+    return <AnalyticsWorkspace />;
   }
 
   if (pathname === "/history") {
@@ -1751,6 +1760,12 @@ function getPageTitle(pathname: string) {
   }
   if (pathname === "/history") {
     return "History";
+  }
+  if (pathname === "/publishing") {
+    return "Scheduler";
+  }
+  if (pathname === "/analytics") {
+    return "Analytics";
   }
   if (pathname.startsWith("/settings")) {
     return "Settings";

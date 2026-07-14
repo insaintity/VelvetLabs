@@ -35,6 +35,8 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
 - Provides a fixed, no-scroll studio interface with focus mode, density controls, command palette, animated loading states, and reduced-motion support.
+- Schedules rendered releases for future YouTube uploads with privacy controls and cancellation.
+- Tracks successful and failed uploads, success rate, privacy mix, and six-month publishing outcomes.
 - Shows empty Projects and Upload History states until real user work exists.
 - Defines the upload history surface that will preserve the prompts used for each uploaded release.
 
@@ -85,6 +87,8 @@ Railway is the recommended low-cost production target. The repo includes `railwa
 - `/dashboard` - first-launch studio overview
 - `/projects/new` - New Media prompt entry for songs or albums
 - `/projects` - empty project library
+- `/publishing` - schedule rendered releases for YouTube
+- `/analytics` - prior upload success, failures, and publishing trends
 - `/history` - upload history and prompt archive
 - `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube login, storage, and worker setup
 
