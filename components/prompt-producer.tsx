@@ -207,7 +207,7 @@ export function PromptProducer({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[70] grid place-items-center bg-[#090814]/75 p-3"
+          className="prompt-producer-backdrop fixed inset-0 z-[70] grid place-items-center p-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -217,7 +217,7 @@ export function PromptProducer({
             role="dialog"
             aria-modal="true"
             aria-labelledby="prompt-producer-title"
-            className="panel glass-panel-strong flex max-h-[min(700px,calc(100vh-24px))] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl"
+            className="prompt-producer-dialog flex max-h-[min(700px,calc(100vh-24px))] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl"
             initial={{ opacity: 0, y: 14, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.99 }}
