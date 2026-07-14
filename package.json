@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "start:railway": "node .next/standalone/server.js",
+    "start:combined": "node workers/combined-service.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

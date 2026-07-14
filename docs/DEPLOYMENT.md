@@ -1,11 +1,11 @@
 # Deployment
 
-Velvet can run as two processes:
+Velvet runs as two processes:
 
 - Web: `npm run start`
 - Worker: `npm run worker`
 
-The worker drains persisted queued jobs for music generation, rendering and YouTube upload. In production, deploy the worker as a separate service/container with the same environment variables and database/secrets access as the web app.
+The worker drains persisted queued jobs for music generation, rendering and YouTube upload. On Railway's entry plan, the checked-in `Dockerfile` runs the web and a supervised worker in one service so Velvet and Postgres fit within the service limit. FFmpeg is included in that image. Larger deployments can instead use a dedicated worker service with the same environment variables and database/secrets access as the web app.
 
 ## Worker Container
 
@@ -35,25 +35,20 @@ Both web and worker processes need access to:
 
 ## Railway
 
-Recommended Railway layout:
+Entry-plan Railway layout:
 
-- Service 1: `velvet-web`
+- Service: `Velvet`
   - Source: GitHub repo
-  - Build command: `npm run build`
-  - Start command: `npm run start:railway`
+  - Builds with the root `Dockerfile`
+  - Start command: `npm run start:combined`
   - Health check path: `/api/health`
-- Service 2: `velvet-worker`
-  - Source: same GitHub repo
-  - Config file path: `/railway.worker.json`
-  - Builds with `Dockerfile.worker` so FFmpeg is included
-  - Start command: `npm run worker`
 - Plugin/service: Postgres
   - Set `VELVET_DATABASE_MODE=postgres`
   - Use Railway's `DATABASE_URL`
 
-The checked-in `railway.json` config is for the web service. The worker has its own `railway.worker.json`; select `/railway.worker.json` as that service's custom config file so the web start command cannot override the worker container.
+For independent scaling on a larger plan, add a second service from the same repo, select `/railway.worker.json` as its custom config file, and change the web service start command back to `npm run start:railway`.
 
-Railway variables to set on both web and worker:
+Railway variables to set on the combined Velvet service, or on both services when the worker is deployed separately:
 
 - `VELVET_ADMIN_PASSWORD` on the web service only
 - `VELVET_SESSION_SECRET` on the web service only; use a separate long random value

@@ -81,7 +81,7 @@ npm run worker:once
 
 For production worker deployment, see `docs/DEPLOYMENT.md` and `Dockerfile.worker`.
 
-Railway is the recommended low-cost production target. The repo includes `railway.json` for the web service; add a second Railway service from the same repo for `npm run worker`.
+Railway is the recommended low-cost production target. The root Docker image includes FFmpeg and runs the web app plus a supervised worker in one service, allowing Velvet and Postgres to fit within Railway's entry-plan service limit.
 
 ## Available Routes
 
