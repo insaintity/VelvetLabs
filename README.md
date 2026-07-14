@@ -35,6 +35,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
 - Provides a fixed, no-scroll studio interface with focus mode, density controls, command palette, animated loading states, and reduced-motion support.
+- Protects production as a private single-user studio with a signed, HTTP-only login session.
 - Schedules rendered releases for future YouTube uploads with privacy controls and cancellation.
 - Tracks successful and failed uploads, success rate, privacy mix, and six-month publishing outcomes.
 - Shows empty Projects and Upload History states until real user work exists.

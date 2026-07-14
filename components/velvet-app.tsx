@@ -19,6 +19,7 @@ import {
   Lock,
   ListMusic,
   ListRestart,
+  LogOut,
   Music2,
   PanelRight,
   Pause,
@@ -308,6 +309,14 @@ function isActiveNavItem(pathname: string, href: string) {
 }
 
 function TopBar({ pageTitle, setup, onOpenCommand, compactDensity, onToggleDensity }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void; compactDensity: boolean; onToggleDensity: () => void }) {
+  const [privateAccessEnabled, setPrivateAccessEnabled] = useState(false);
+  useEffect(() => { fetch("/api/auth/status").then((response) => response.json()).then((body) => setPrivateAccessEnabled(body.enabled === true)).catch(() => undefined); }, []);
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.assign("/login");
+  }
+
   return (
     <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/10 px-3 lg:h-[62px] lg:px-6">
       <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
@@ -322,6 +331,9 @@ function TopBar({ pageTitle, setup, onOpenCommand, compactDensity, onToggleDensi
         <button onClick={onOpenCommand} title="Open command palette" aria-label="Open command palette" className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-white">
           <Search className="h-4 w-4" />
         </button>
+        {privateAccessEnabled ? <button onClick={signOut} title="Sign out of private studio" aria-label="Sign out of private studio" className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-white">
+          <LogOut className="h-4 w-4" />
+        </button> : null}
         {setup.isComplete ? (
           <Link href="/settings" className="flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 text-sm text-[var(--text-secondary)] transition hover:border-[var(--border-hover)] hover:text-white">
             <KeyRound className="h-4 w-4" />

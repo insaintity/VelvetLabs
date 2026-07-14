@@ -41,7 +41,7 @@ Recommended Railway layout:
   - Source: GitHub repo
   - Build command: `npm run build`
   - Start command: `npm run start:railway`
-  - Health check path: `/dashboard`
+  - Health check path: `/api/health`
 - Service 2: `velvet-worker`
   - Source: same GitHub repo
   - Config file path: `/railway.worker.json`
@@ -55,6 +55,8 @@ The checked-in `railway.json` config is for the web service. The worker has its 
 
 Railway variables to set on both web and worker:
 
+- `VELVET_ADMIN_PASSWORD` on the web service only
+- `VELVET_SESSION_SECRET` on the web service only; use a separate long random value
 - `VELVET_DATABASE_MODE=postgres`
 - `VELVET_SECRET_PROVIDER=env`
 - `OPENAI_API_KEY`
