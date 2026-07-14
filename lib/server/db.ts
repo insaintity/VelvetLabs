@@ -115,8 +115,13 @@ export async function updateJob(id: string, patch: Partial<JobRecord>) {
 
 export async function claimNextQueuedJob() {
   const database = await readDatabase();
+  const nowMs = Date.now();
   const nextJob = [...database.jobs]
-    .filter((job) => job.status === "queued")
+    .filter((job) => {
+      if (job.status !== "queued") return false;
+      const scheduledAt = typeof job.payload?.scheduledPublishAt === "string" ? Date.parse(job.payload.scheduledPublishAt) : Number.NaN;
+      return !Number.isFinite(scheduledAt) || scheduledAt <= nowMs;
+    })
     .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())[0];
 
   if (!nextJob) {

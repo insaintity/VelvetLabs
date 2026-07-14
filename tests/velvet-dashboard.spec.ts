@@ -173,6 +173,31 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("slider", { name: "Track position" })).toBeVisible();
   });
 
+  test("opens audition, timeline, generation, and creative studio tools", async ({ page }) => {
+    await writeFixtureDatabase();
+    await page.goto(`/projects/${fixtureProjectId}`);
+
+    await page.getByRole("button", { name: /^Amber Masque/ }).click();
+    await expect(page.getByRole("dialog", { name: "Track audition" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refine" })).toBeVisible();
+    await page.getByRole("button", { name: "Close Track audition" }).click();
+
+    await page.getByRole("button", { name: "Open album timeline" }).click();
+    await expect(page.getByRole("dialog", { name: "Album timeline" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save timeline" })).toBeVisible();
+    await page.getByRole("button", { name: "Close Album timeline" }).click();
+
+    await page.getByRole("button", { name: "Open generation center" }).click();
+    await expect(page.getByRole("dialog", { name: "Generation center" })).toBeVisible();
+    await expect(page.getByText("Next generation estimate")).toBeVisible();
+    await page.getByRole("button", { name: "Close Generation center" }).click();
+
+    await page.getByRole("button", { name: "Title and thumbnail variants" }).click();
+    const creativeVariants = page.getByRole("dialog", { name: "Creative variants" });
+    await expect(creativeVariants).toBeVisible();
+    await expect(creativeVariants.getByRole("button", { name: "Generate", exact: true })).toBeVisible();
+  });
+
   test("keeps primary pages inside the fixed studio frame", async ({ page }) => {
     await writeFixtureDatabase();
     for (const path of ["/dashboard", "/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/history", "/settings"]) {

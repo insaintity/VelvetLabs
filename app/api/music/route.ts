@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
@@ -39,22 +40,34 @@ export async function POST(request: Request) {
   try {
     const projectDir = path.join(exportsDir, project.id);
     await mkdir(projectDir, { recursive: true });
-    const tracks: Array<{ title: string; filePath: string; durationSeconds: number }> = [];
+    const tracks: Array<{ id: string; title: string; filePath: string; durationSeconds: number; version: number; prompt: string; createdAt: string }> = [];
 
     for (const [index, track] of project.blueprint.tracks.entries()) {
+      const version = (project.trackVersions?.[track.title]?.length ?? 0) + 1;
       const audio = await generateMusicTrack({
         apiKey: elevenLabsKey,
         prompt: track.prompt,
         durationSeconds: track.durationSeconds
       });
-      const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}.mp3`);
+      const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}-v${version}.mp3`);
       await writeFile(filePath, audio);
-      tracks.push({ title: track.title, filePath, durationSeconds: track.durationSeconds });
+      tracks.push({ id: randomUUID(), title: track.title, filePath, durationSeconds: track.durationSeconds, version, prompt: track.prompt, createdAt: new Date().toISOString() });
     }
 
     const latest = await readDatabase();
     latest.projects = latest.projects.map((item) =>
-      item.id === projectId ? { ...item, status: "generating", generatedTracks: tracks, updatedAt: new Date().toISOString() } : item
+      item.id === projectId
+        ? {
+            ...item,
+            status: "generating",
+            generatedTracks: project.blueprint!.tracks.flatMap((blueprintTrack) => {
+              const generated = tracks.find((track) => track.title === blueprintTrack.title) ?? item.generatedTracks?.find((track) => track.title === blueprintTrack.title);
+              return generated ? [generated] : [];
+            }),
+            trackVersions: tracks.reduce((versions, track) => ({ ...versions, [track.title]: [...(item.trackVersions?.[track.title] ?? []), track] }), item.trackVersions ?? {}),
+            updatedAt: new Date().toISOString()
+          }
+        : item
     );
     await writeDatabase(latest);
     await addUsage({

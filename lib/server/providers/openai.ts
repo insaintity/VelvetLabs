@@ -106,3 +106,54 @@ export async function generateAlbumBlueprint({
   const raw = data.output_text ?? data.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? []).map((item: { text?: string }) => item.text ?? "").join("");
   return { blueprint: JSON.parse(raw), raw, usage: data.usage };
 }
+
+export async function refineMusicPrompt({ apiKey, model, prompt }: { apiKey: string; model: string; prompt: string }) {
+  const response = await fetch(`${openaiBaseUrl}/responses`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      input: [
+        { role: "system", content: "You are Velvet's music prompt editor. Improve specificity, arrangement, arc, instrumentation, and production detail without changing the creator's intent." },
+        { role: "user", content: prompt }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "prompt_refinement",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["prompt", "explanation"],
+            properties: { prompt: { type: "string" }, explanation: { type: "string" } }
+          }
+        }
+      }
+    })
+  });
+
+  if (!response.ok) throw new Error(`OpenAI prompt refinement failed (${response.status}).`);
+  const data = await response.json();
+  const raw = data.output_text ?? data.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? []).map((item: { text?: string }) => item.text ?? "").join("");
+  return { ...JSON.parse(raw), raw, usage: data.usage } as { prompt: string; explanation: string; raw: string; usage?: Record<string, number> };
+}
+
+export async function generateCreativeVariants({ apiKey, model, title, concept, coverPrompt }: { apiKey: string; model: string; title: string; concept: string; coverPrompt: string }) {
+  const response = await fetch(`${openaiBaseUrl}/responses`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      input: [
+        { role: "system", content: "You are Velvet's release strategist. Create distinct, tasteful YouTube title and thumbnail directions without clickbait." },
+        { role: "user", content: `Release: ${title}\nConcept: ${concept}\nCurrent artwork direction: ${coverPrompt}` }
+      ],
+      text: { format: { type: "json_schema", name: "creative_variants", strict: true, schema: { type: "object", additionalProperties: false, required: ["titles", "thumbnailPrompts"], properties: { titles: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } }, thumbnailPrompts: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } } } } } }
+    })
+  });
+  if (!response.ok) throw new Error(`OpenAI creative variants failed (${response.status}).`);
+  const data = await response.json();
+  const raw = data.output_text ?? data.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? []).map((item: { text?: string }) => item.text ?? "").join("");
+  return { ...JSON.parse(raw), raw, usage: data.usage } as { titles: string[]; thumbnailPrompts: string[]; raw: string; usage?: Record<string, number> };
+}

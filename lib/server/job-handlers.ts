@@ -8,7 +8,7 @@ import { exportsDir } from "./paths";
 import { generateMusicTrack } from "./providers/elevenlabs";
 import { refreshYouTubeAccessToken, uploadYouTubeVideo } from "./providers/youtube";
 import { readSecret } from "./secrets";
-import type { JobRecord } from "./types";
+import type { GeneratedTrack, JobRecord, ProductionSettings } from "./types";
 
 const execFileAsync = promisify(execFile);
 const ffmpegBinary = process.env.FFMPEG_PATH || "ffmpeg";
@@ -72,22 +72,37 @@ async function processMusicJob(job: JobRecord) {
   await updateJob(job.id, { message: "Generating album tracks." });
   const projectDir = path.join(exportsDir, project.id);
   await mkdir(projectDir, { recursive: true });
-  const tracks: Array<{ title: string; filePath: string; durationSeconds: number }> = [];
+  const requestedTrackTitle = typeof job.payload?.trackTitle === "string" ? job.payload.trackTitle : undefined;
+  const trackEntries = project.blueprint.tracks.map((track, index) => ({ track, index })).filter(({ track }) => !requestedTrackTitle || track.title === requestedTrackTitle);
+  if (!trackEntries.length) throw new Error("The requested track was not found in this project.");
+  const tracks: GeneratedTrack[] = [];
 
-  for (const [index, track] of project.blueprint.tracks.entries()) {
+  for (const { track, index } of trackEntries) {
+    const version = (project.trackVersions?.[track.title]?.length ?? 0) + 1;
     const audio = await generateMusicTrack({
       apiKey: elevenLabsKey,
       prompt: track.prompt,
       durationSeconds: track.durationSeconds
     });
-    const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}.mp3`);
+    const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}-v${version}.mp3`);
     await writeFile(filePath, audio);
-    tracks.push({ title: track.title, filePath, durationSeconds: track.durationSeconds });
+    tracks.push({ id: randomUUID(), title: track.title, filePath, durationSeconds: track.durationSeconds, version, prompt: track.prompt, createdAt: new Date().toISOString() });
   }
 
   const latest = await readDatabase();
   latest.projects = latest.projects.map((item) =>
-    item.id === projectId ? { ...item, status: "generating", generatedTracks: tracks, updatedAt: new Date().toISOString() } : item
+    item.id === projectId
+      ? {
+          ...item,
+          status: "generating",
+          generatedTracks: project.blueprint!.tracks.flatMap((blueprintTrack) => {
+            const generated = tracks.find((track) => track.title === blueprintTrack.title) ?? item.generatedTracks?.find((track) => track.title === blueprintTrack.title);
+            return generated ? [generated] : [];
+          }),
+          trackVersions: tracks.reduce((versions, track) => ({ ...versions, [track.title]: [...(item.trackVersions?.[track.title] ?? []), track] }), item.trackVersions ?? {}),
+          updatedAt: new Date().toISOString()
+        }
+      : item
   );
   await writeDatabase(latest);
   await addUsage({
@@ -115,6 +130,7 @@ async function processRenderJob(job: JobRecord) {
   }
 
   await updateJob(job.id, { message: "Preparing render manifest." });
+  const silenceAnalysis = project.generatedTracks?.length ? await analyzeSilence(project.generatedTracks) : [];
   const manifest = {
     id: randomUUID(),
     projectId,
@@ -122,6 +138,8 @@ async function processRenderJob(job: JobRecord) {
     blueprint: project.blueprint,
     createdAt: new Date().toISOString(),
     tracks: project.generatedTracks ?? [],
+    production: project.production,
+    silenceAnalysis,
     nextStep: "Install FFmpeg and generate tracks to produce MP4 output."
   };
   const projectDir = path.join(exportsDir, project.id);
@@ -137,7 +155,7 @@ async function processRenderJob(job: JobRecord) {
     try {
       await execFileAsync(ffmpegBinary, ["-version"]);
       videoPath = path.join(projectDir, `${project.id}.mp4`);
-      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(project.generatedTracks, videoPath));
+      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(project.generatedTracks, videoPath, project.production));
       renderStatus = "rendered";
       message = "Full album MP4 rendered with FFmpeg.";
     } catch {
@@ -169,6 +187,17 @@ async function processRenderJob(job: JobRecord) {
     }
   });
   await updateJob(job.id, { status: renderStatus === "rendered" ? "completed" : "blocked", message, result: { manifestPath: filePath, videoPath } });
+}
+
+async function analyzeSilence(tracks: GeneratedTrack[]) {
+  return Promise.all(tracks.map(async (track) => {
+    try {
+      const { stderr } = await execFileAsync(ffmpegBinary, ["-hide_banner", "-i", track.filePath, "-af", "silencedetect=n=-50dB:d=1.5", "-f", "null", "-"]);
+      return { title: track.title, silentSections: (stderr.match(/silence_start:/g) ?? []).length, analyzed: true };
+    } catch {
+      return { title: track.title, silentSections: 0, analyzed: false };
+    }
+  }));
 }
 
 async function processYouTubeUploadJob(job: JobRecord) {
@@ -266,10 +295,13 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-function buildAlbumRenderArgs(tracks: Array<{ filePath: string; durationSeconds: number }>, videoPath: string) {
+function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, production?: ProductionSettings) {
+  const gapSeconds = Math.max(0, Math.min(10, production?.gapSeconds ?? 1.5));
+  const fadeSeconds = Math.max(0, Math.min(5, production?.fadeSeconds ?? 0.8));
+  const targetLufs = Math.max(-24, Math.min(-8, production?.targetLufs ?? -14));
   const totalSeconds = Math.max(
     1,
-    tracks.reduce((sum, track) => sum + track.durationSeconds, 0)
+    tracks.reduce((sum, track) => sum + track.durationSeconds, 0) + Math.max(0, tracks.length - 1) * gapSeconds
   );
   const baseArgs = [
     "-y",
@@ -280,17 +312,20 @@ function buildAlbumRenderArgs(tracks: Array<{ filePath: string; durationSeconds:
     ...tracks.flatMap((track) => ["-i", track.filePath])
   ];
 
-  const audioArgs =
-    tracks.length === 1
-      ? ["-map", "0:v", "-map", "1:a"]
-      : [
-          "-filter_complex",
-          `${tracks.map((_, index) => `[${index + 1}:a]`).join("")}concat=n=${tracks.length}:v=0:a=1[aout]`,
-          "-map",
-          "0:v",
-          "-map",
-          "[aout]"
-        ];
+  const filters = tracks.map((track, index) => {
+    const fadeOutStart = Math.max(0, track.durationSeconds - fadeSeconds);
+    const fade = fadeSeconds > 0 ? `,afade=t=in:st=0:d=${fadeSeconds},afade=t=out:st=${fadeOutStart}:d=${fadeSeconds}` : "";
+    const gap = index < tracks.length - 1 && gapSeconds > 0 ? `,apad=pad_dur=${gapSeconds}` : "";
+    return `[${index + 1}:a]loudnorm=I=${targetLufs}:TP=-1.5:LRA=11${fade}${gap}[a${index}]`;
+  });
+  const audioArgs = [
+    "-filter_complex",
+    `${filters.join(";")};${tracks.map((_, index) => `[a${index}]`).join("")}concat=n=${tracks.length}:v=0:a=1[aout]`,
+    "-map",
+    "0:v",
+    "-map",
+    "[aout]"
+  ];
 
   return [
     ...baseArgs,

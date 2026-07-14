@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { readDatabase, updateProject } from "@/lib/server/db";
+import { readDatabase, updateProject, writeDatabase } from "@/lib/server/db";
 import { requireSameOrigin } from "@/lib/server/security";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -33,6 +34,45 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Project blueprint is required before editing." }, { status: 404 });
   }
 
+  const production = body.production && typeof body.production === "object"
+    ? {
+        gapSeconds: clampNumber(body.production.gapSeconds, project.production?.gapSeconds ?? 1.5, 0, 10),
+        fadeSeconds: clampNumber(body.production.fadeSeconds, project.production?.fadeSeconds ?? 0.8, 0, 5),
+        targetLufs: clampNumber(body.production.targetLufs, project.production?.targetLufs ?? -14, -24, -8),
+        stylePreset: cleanString(body.production.stylePreset) || project.production?.stylePreset,
+        scheduledPublishAt: cleanString(body.production.scheduledPublishAt) || project.production?.scheduledPublishAt
+      }
+    : project.production;
+  const tracks = Array.isArray(body.tracks)
+    ? body.tracks.slice(0, 20).map((track: Record<string, unknown>, index: number) => ({
+        title: cleanString(track.title) || project.blueprint!.tracks[index]?.title || `Track ${index + 1}`,
+        durationSeconds: clampNumber(track.durationSeconds, project.blueprint!.tracks[index]?.durationSeconds ?? 180, 30, 600),
+        prompt: cleanString(track.prompt) || project.blueprint!.tracks[index]?.prompt || "Instrumental music",
+        mood: cleanString(track.mood) || project.blueprint!.tracks[index]?.mood || "cinematic"
+      }))
+    : project.blueprint.tracks;
+  let generatedTracks = project.generatedTracks;
+  let trackVersions = project.trackVersions;
+  if (body.versionAction && typeof body.versionAction === "object") {
+    const title = cleanString(body.versionAction.title);
+    const versionId = cleanString(body.versionAction.versionId);
+    const version = trackVersions?.[title]?.find((item) => item.id === versionId || String(item.version) === versionId);
+    if (version && body.versionAction.type === "select") {
+      generatedTracks = project.blueprint.tracks.flatMap((track) => {
+        const generated = track.title === title ? version : generatedTracks?.find((item) => item.title === track.title);
+        return generated ? [generated] : [];
+      });
+    }
+    if (version && body.versionAction.type === "approve") {
+      const approved = { ...version, approvedAt: new Date().toISOString() };
+      trackVersions = { ...trackVersions, [title]: (trackVersions?.[title] ?? []).map((item) => item === version ? approved : item) };
+      generatedTracks = project.blueprint.tracks.flatMap((track) => {
+        const generated = track.title === title ? approved : generatedTracks?.find((item) => item.title === track.title);
+        return generated ? [generated] : [];
+      });
+    }
+  }
+
   const updated = await updateProject(id, {
     title: body.title || project.title,
     blueprint: {
@@ -41,6 +81,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       concept: body.concept ?? project.blueprint.concept,
       coverPrompt: body.coverPrompt ?? project.blueprint.coverPrompt,
       videoPrompt: body.videoPrompt ?? project.blueprint.videoPrompt,
+      tracks,
       youtube: {
         ...project.blueprint.youtube,
         title: body.youtubeTitle ?? project.blueprint.youtube.title,
@@ -53,8 +94,36 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
                 .filter(Boolean)
             : project.blueprint.youtube.tags
       }
-    }
+    },
+    production,
+    generatedTracks,
+    trackVersions
   });
 
   return NextResponse.json({ project: updated });
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const blocked = requireSameOrigin(request);
+  if (blocked) return blocked;
+  const { id } = await context.params;
+  const body = await request.json();
+  if (body.action !== "duplicate") return NextResponse.json({ error: "Unsupported project action." }, { status: 400 });
+  const database = await readDatabase();
+  const project = database.projects.find((item) => item.id === id);
+  if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  const now = new Date().toISOString();
+  const duplicate = { ...project, id: randomUUID(), title: `${project.title} Copy`, status: "blueprint" as const, generatedTracks: undefined, trackVersions: undefined, render: undefined, approvedAt: undefined, createdAt: now, updatedAt: now };
+  database.projects.unshift(duplicate);
+  await writeDatabase(database);
+  return NextResponse.json({ project: duplicate });
+}
+
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim().slice(0, 8000) : "";
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
 }

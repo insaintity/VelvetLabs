@@ -134,7 +134,7 @@ export function StatusPill({ status }: { status: string }) {
             ? "border-[rgba(213,161,94,0.3)] bg-[rgba(213,161,94,0.09)] text-[var(--warning)]"
             : "border-[var(--border)] bg-white/[0.035] text-[var(--text-secondary)]";
 
-  return <span className={`inline-flex h-6 items-center rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${tone}`}>{status}</span>;
+  return <motion.span initial={false} animate={normalized.includes("approved") || normalized.includes("complete") ? { boxShadow: ["0 0 0 rgba(88,182,168,0)", "0 0 16px rgba(88,182,168,.16)", "0 0 0 rgba(88,182,168,0)"] } : {}} transition={{ duration: 1.2 }} className={`inline-flex h-6 items-center rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${tone}`}>{status}</motion.span>;
 }
 
 const waveformHeights = [8, 13, 20, 12, 26, 17, 9, 23, 31, 18, 12, 27, 36, 22, 14, 29, 20, 10, 24, 33, 18, 12, 28, 39, 25, 14, 31, 21, 11, 26, 35, 19, 13, 30, 23, 9, 21, 29, 16, 11, 24, 18, 8, 15, 20, 12, 9, 14];

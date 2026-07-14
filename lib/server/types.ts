@@ -64,6 +64,25 @@ export type AlbumBlueprint = {
 
 export type MediaType = "song" | "album";
 
+export type GeneratedTrack = {
+  id?: string;
+  title: string;
+  filePath: string;
+  durationSeconds: number;
+  version?: number;
+  prompt?: string;
+  createdAt?: string;
+  approvedAt?: string;
+};
+
+export type ProductionSettings = {
+  gapSeconds: number;
+  fadeSeconds: number;
+  targetLufs: number;
+  stylePreset?: string;
+  scheduledPublishAt?: string;
+};
+
 export type ProjectRecord = {
   id: string;
   title: string;
@@ -72,11 +91,21 @@ export type ProjectRecord = {
   status: "blueprint" | "approved" | "generating" | "rendered" | "uploaded" | "failed";
   blueprint?: AlbumBlueprint;
   approvedAt?: string;
-  generatedTracks?: Array<{
-    title: string;
+  generatedTracks?: GeneratedTrack[];
+  trackVersions?: Record<string, GeneratedTrack[]>;
+  production?: ProductionSettings;
+  referenceAssets?: Array<{
+    id: string;
+    name: string;
+    kind: "audio" | "artwork";
     filePath: string;
-    durationSeconds: number;
+    createdAt: string;
   }>;
+  creativeVariants?: {
+    titles: string[];
+    thumbnailPrompts: string[];
+    createdAt: string;
+  };
   render?: {
     manifestPath: string;
     videoPath?: string;

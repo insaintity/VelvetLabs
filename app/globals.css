@@ -136,6 +136,30 @@ select:focus-visible {
   opacity: 0.18;
 }
 
+input[aria-label="Track position"] {
+  cursor: col-resize;
+}
+
+.studio-skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
+  background-size: 220% 100%;
+  animation: studio-shimmer 1.5s ease-in-out infinite;
+}
+
+.compact-density .studio-track-row {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.compact-density .studio-track-row p {
+  display: none;
+}
+
+@keyframes studio-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

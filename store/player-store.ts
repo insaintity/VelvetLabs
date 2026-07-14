@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 type PlayerState = {
-  activeTrack: { title: string; projectTitle: string; durationSeconds: number; artworkTitle: string } | null;
+  activeTrack: { title: string; projectTitle: string; durationSeconds: number; artworkTitle: string; sourceUrl?: string; version?: number } | null;
   isPlaying: boolean;
   positionSeconds: number;
   volume: number;

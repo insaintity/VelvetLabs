@@ -1,17 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
   Check,
   Clapperboard,
   Database,
+  Download,
   FileText,
+  Focus,
   HelpCircle,
+  ImageIcon,
   KeyRound,
   Lock,
   ListMusic,
+  ListRestart,
   Music2,
   PanelRight,
   Pause,
@@ -24,6 +28,7 @@ import {
   SkipBack,
   SkipForward,
   Sparkles,
+  SlidersHorizontal,
   Upload,
   Volume2,
   WandSparkles,
@@ -37,6 +42,7 @@ import { historyColumns, historyPromptTypes, navItems, safetyDefaults, setupStep
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 import { CommandPalette, ProjectArtwork, StatusPill, Waveform } from "@/components/studio-chrome";
+import { CreativeVariantsDrawer, emitToast, GenerationDrawer, ReferenceUploader, SequenceDrawer, ToastHost, TrackAuditionDrawer, type StudioProduction, type StudioTrack } from "@/components/project-studio-tools";
 
 export function VelvetApp() {
   const pathname = usePathname();
@@ -44,6 +50,7 @@ export function VelvetApp() {
   const setupOverview = useSetupOverview();
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [compactDensity, setCompactDensity] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -56,12 +63,21 @@ export function VelvetApp() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => setCompactDensity(window.localStorage.getItem("velvet-density") === "compact"), []);
+
+  function toggleDensity() {
+    setCompactDensity((current) => {
+      window.localStorage.setItem("velvet-density", current ? "comfortable" : "compact");
+      return !current;
+    });
+  }
+
   return (
-    <main className="relative z-10 h-screen min-w-0 overflow-hidden p-3 text-[15px] lg:p-5">
+    <main className={`relative z-10 h-screen min-w-0 overflow-hidden p-3 text-[15px] lg:p-5 ${compactDensity ? "compact-density" : ""}`}>
       <div className={`grid h-[calc(100vh-24px)] grid-cols-[64px_minmax(0,1fr)] gap-3 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-5 ${activeTrack ? "lg:h-[calc(100vh-136px)]" : "lg:h-[calc(100vh-40px)]"}`}>
         <Sidebar pathname={pathname} setup={setupOverview} />
         <section className="panel flex min-h-0 flex-col overflow-hidden rounded-2xl lg:rounded-[22px]">
-          <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} />
+          <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} compactDensity={compactDensity} onToggleDensity={toggleDensity} />
           <motion.div key={pathname} className="flex min-h-0 flex-1" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}>
             {pathname === "/projects/new" ? <NewProjectFlow /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
           </motion.div>
@@ -69,6 +85,7 @@ export function VelvetApp() {
       </div>
       <BottomPlayer />
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <ToastHost />
     </main>
   );
 }
@@ -159,7 +176,11 @@ type ClientProject = {
       tags: string[];
     };
   };
-  generatedTracks?: Array<{ title: string; filePath: string; durationSeconds: number }>;
+  generatedTracks?: Array<{ id?: string; title: string; filePath: string; durationSeconds: number; version?: number; prompt?: string; createdAt?: string; approvedAt?: string }>;
+  trackVersions?: Record<string, Array<{ id?: string; title: string; filePath: string; durationSeconds: number; version?: number; prompt?: string; createdAt?: string; approvedAt?: string }>>;
+  production?: StudioProduction;
+  referenceAssets?: Array<{ id: string; name: string; kind: "audio" | "artwork"; filePath: string; createdAt: string }>;
+  creativeVariants?: { titles: string[]; thumbnailPrompts: string[]; createdAt: string };
   render?: {
     manifestPath: string;
     videoPath?: string;
@@ -180,6 +201,7 @@ type ClientJob = {
   type: string;
   status: string;
   message: string;
+  updatedAt?: string;
 };
 
 type ClientUsage = {
@@ -280,7 +302,7 @@ function isActiveNavItem(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
 }
 
-function TopBar({ pageTitle, setup, onOpenCommand }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void }) {
+function TopBar({ pageTitle, setup, onOpenCommand, compactDensity, onToggleDensity }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void; compactDensity: boolean; onToggleDensity: () => void }) {
   return (
     <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/10 px-3 lg:h-[62px] lg:px-6">
       <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
@@ -291,6 +313,7 @@ function TopBar({ pageTitle, setup, onOpenCommand }: { pageTitle: string; setup:
         <span className="text-[var(--text-primary)]">{pageTitle}</span>
       </div>
       <div className="flex items-center gap-3">
+        <button onClick={onToggleDensity} title={compactDensity ? "Use comfortable density" : "Use compact density"} aria-label={compactDensity ? "Use comfortable density" : "Use compact density"} aria-pressed={compactDensity} className={`grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035] hover:border-[var(--border-hover)] hover:text-white ${compactDensity ? "text-[var(--rose-soft)]" : "text-[var(--text-muted)]"}`}><SlidersHorizontal className="h-4 w-4" /></button>
         <button onClick={onOpenCommand} title="Open command palette" aria-label="Open command palette" className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-white">
           <Search className="h-4 w-4" />
         </button>
@@ -453,6 +476,7 @@ function ProjectsWorkspace() {
 }
 
 function ProjectDetailWorkspace({ id }: { id: string }) {
+  const setup = useSetupOverview();
   const [project, setProject] = useState<ClientProject | null>(null);
   const [jobs, setJobs] = useState<ClientJob[]>([]);
   const [usage, setUsage] = useState<ClientUsage[]>([]);
@@ -463,6 +487,12 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   const [saveState, setSaveState] = useState("Saved");
   const [editRevision, setEditRevision] = useState(0);
   const [privacy, setPrivacy] = useState<"private" | "unlisted" | "public">("private");
+  const [auditionTrack, setAuditionTrack] = useState<StudioTrack | null>(null);
+  const [sequenceOpen, setSequenceOpen] = useState(false);
+  const [generationOpen, setGenerationOpen] = useState(false);
+  const [creativeOpen, setCreativeOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [generationRate, setGenerationRate] = useState<number | null>(null);
   const { activeTrack, loadTrack, togglePlaying } = usePlayerStore();
   const [editForm, setEditForm] = useState({
     title: "",
@@ -498,6 +528,10 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   }, [loadProject]);
 
   useEffect(() => {
+    fetch("/api/setup").then((response) => response.json()).then((data) => setGenerationRate(data.setup?.pricing?.elevenLabsPerMinute ?? null)).catch(() => setGenerationRate(null));
+  }, []);
+
+  useEffect(() => {
     if (!isEditing || editRevision === 0) return;
     setSaveState("Saving");
     const timer = window.setTimeout(async () => {
@@ -529,7 +563,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
       const response = await fetch(action === "approve" ? `/api/projects/${id}/approve` : "/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "approve" ? { projectId: id } : { projectId: id, type: queuedJobType(action), payload: { privacy } })
+        body: JSON.stringify(action === "approve" ? { projectId: id } : { projectId: id, type: queuedJobType(action), payload: { privacy, scheduledPublishAt: project?.production?.scheduledPublishAt } })
       });
       const data = await response.json();
 
@@ -538,13 +572,47 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
       }
 
       setMessage(data.message ?? `${actionLabel(action)} complete.`);
+      emitToast(data.message ?? `${actionLabel(action)} complete.`, "success");
       await loadProject();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `${actionLabel(action)} failed.`);
+      emitToast(error instanceof Error ? error.message : `${actionLabel(action)} failed.`, "error");
       await loadProject().catch(() => undefined);
     } finally {
       setBusyAction(null);
     }
+  }
+
+  async function saveStudioState(tracks: StudioTrack[], production: StudioProduction) {
+    const response = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks, production }) });
+    if (!response.ok) return emitToast("Timeline changes could not be saved.", "error");
+    emitToast("Album timeline saved.", "success");
+    setSequenceOpen(false);
+    await loadProject();
+  }
+
+  async function applyTrackPrompt(prompt: string) {
+    if (!project?.blueprint || !auditionTrack) return;
+    const tracks = project.blueprint.tracks.map((track) => track.title === auditionTrack.title ? { ...track, prompt } : track);
+    const response = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks }) });
+    if (!response.ok) return emitToast("Prompt could not be applied.", "error");
+    emitToast("Track prompt updated.", "success");
+    await loadProject();
+  }
+
+  async function duplicateProject() {
+    const response = await fetch(`/api/projects/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "duplicate" }) });
+    const data = await response.json();
+    if (!response.ok) return emitToast(data.error ?? "Project could not be duplicated.", "error");
+    emitToast("Project duplicated.", "success");
+    window.location.href = `/projects/${data.project.id}`;
+  }
+
+  async function applyCreativeVariant(field: "youtubeTitle" | "coverPrompt", value: string) {
+    const response = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
+    if (!response.ok) return emitToast("Creative direction could not be applied.", "error");
+    emitToast(field === "youtubeTitle" ? "YouTube title applied." : "Thumbnail direction applied.", "success");
+    await loadProject();
   }
 
   async function saveProjectEdits() {
@@ -578,17 +646,17 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
 
   if (!project) {
     return (
-      <div className="min-h-0 flex-1 p-5">
-        <section className="panel flex h-full items-center justify-center rounded-xl text-sm text-[var(--text-secondary)]">
-          {message}
-        </section>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-4 xl:grid-cols-[236px_minmax(0,1fr)_300px]" aria-label="Loading studio">
+        <section className="panel hidden rounded-xl p-3 xl:block"><div className="studio-skeleton aspect-square rounded-xl" /><div className="studio-skeleton mt-4 h-5 w-2/3 rounded" /><div className="studio-skeleton mt-3 h-3 w-full rounded" /></section>
+        <section className="panel rounded-xl p-4"><div className="studio-skeleton h-5 w-32 rounded" /><div className="mt-8 grid gap-2">{[1,2,3,4,5].map((item) => <div key={item} className="studio-skeleton h-14 rounded-lg" />)}</div><span className="sr-only">{message}</span></section>
+        <section className="panel hidden rounded-xl p-3 xl:block"><div className="studio-skeleton h-9 rounded-lg" /><div className="studio-skeleton mt-4 h-24 rounded-lg" /><div className="studio-skeleton mt-3 h-24 rounded-lg" /></section>
       </div>
     );
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 lg:p-4 xl:grid-cols-[236px_minmax(0,1fr)_300px]">
-      <aside className="panel hidden min-h-0 rounded-xl p-3 xl:block">
+    <div className={`grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 lg:p-4 ${focusMode ? "xl:grid-cols-1" : "xl:grid-cols-[236px_minmax(0,1fr)_300px]"}`}>
+      <aside className={`panel hidden min-h-0 rounded-xl p-3 ${focusMode ? "xl:hidden" : "xl:block"}`}>
         <ProjectArtwork title={project.title} />
         <div className="mt-4 flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.mediaType ?? "album"}</span>
@@ -632,18 +700,18 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
 
         <div className="mt-4 grid grid-cols-1 gap-4">
           <div className="space-y-3">
-            <div className="flex items-center justify-between"><SectionTitle label="Tracks & Prompts" icon={<Music2 className="h-4 w-4" />} /><span className="text-[11px] text-[var(--text-muted)]">{project.generatedTracks?.length ?? 0} generated</span></div>
+            <div className="flex items-center justify-between gap-3"><SectionTitle label="Tracks & Prompts" icon={<Music2 className="h-4 w-4" />} /><div className="flex items-center gap-1"><button onClick={() => setFocusMode((current) => !current)} title={focusMode ? "Exit focus mode" : "Focus studio"} aria-label={focusMode ? "Exit focus mode" : "Focus studio"} className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><Focus className="h-3.5 w-3.5" /></button><button onClick={() => setSequenceOpen(true)} title="Open album timeline" aria-label="Open album timeline" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><SlidersHorizontal className="h-3.5 w-3.5" /></button><button onClick={() => setGenerationOpen(true)} title="Open generation center" aria-label="Open generation center" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><ListRestart className="h-3.5 w-3.5" /></button><span className="ml-1 text-[11px] text-[var(--text-muted)]">{project.generatedTracks?.length ?? 0} generated</span></div></div>
             <div className="grid max-h-[410px] gap-2 overflow-hidden">
               {(project.blueprint?.tracks ?? []).slice(0, 6).map((track, index) => {
                 const generated = project.generatedTracks?.[index];
                 const isCurrent = activeTrack?.title === track.title && activeTrack.projectTitle === project.title;
                 return (
-                  <motion.article key={track.title} layout className={`grid grid-cols-[36px_30px_minmax(0,1fr)_54px] items-center gap-2 rounded-lg px-2 py-2 ring-1 ring-inset transition ${isCurrent ? "bg-[rgba(239,99,152,0.085)] ring-[rgba(239,99,152,0.24)]" : "bg-white/[0.025] ring-[var(--border)] hover:bg-white/[0.04]"}`}>
-                    <button aria-label={generated ? `Play ${track.title}` : `${track.title} is not generated yet`} title={generated ? `Play ${track.title}` : "Generate this track before playback"} disabled={!generated} onClick={() => { if (!isCurrent) loadTrack({ title: track.title, projectTitle: project.title, durationSeconds: track.durationSeconds, artworkTitle: project.title }); togglePlaying(); }} className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.045] text-[var(--text-secondary)] hover:bg-[rgba(239,99,152,0.14)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
+                  <motion.article key={track.title} layout onContextMenu={(event) => { event.preventDefault(); setAuditionTrack(track); }} className={`studio-track-row grid grid-cols-[36px_30px_minmax(0,1fr)_54px] items-center gap-2 rounded-lg px-2 py-2 ring-1 ring-inset transition ${isCurrent ? "bg-[rgba(239,99,152,0.085)] ring-[rgba(239,99,152,0.24)]" : "bg-white/[0.025] ring-[var(--border)] hover:bg-white/[0.04]"}`}>
+                    <button aria-label={generated ? `Play ${track.title}` : `${track.title} is not generated yet`} title={generated ? `Play ${track.title}` : "Generate this track before playback"} disabled={!generated} onClick={() => { if (!isCurrent) loadTrack({ title: track.title, projectTitle: project.title, durationSeconds: track.durationSeconds, artworkTitle: project.title, version: generated?.version, sourceUrl: `/api/audio?projectId=${encodeURIComponent(id)}&trackId=${encodeURIComponent(generated?.id ?? "")}&title=${encodeURIComponent(track.title)}` }); togglePlaying(); }} className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.045] text-[var(--text-secondary)] hover:bg-[rgba(239,99,152,0.14)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
                       <Play className="h-3.5 w-3.5 fill-current" />
                     </button>
                     <span className="tabular text-xs text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>
-                    <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-sm font-medium text-white">{track.title}</h2><span className="hidden rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[var(--text-muted)] 2xl:inline">{track.mood}</span></div><p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{track.prompt}</p></div>
+                    <button onClick={() => setAuditionTrack(track)} className="min-w-0 text-left"><div className="flex items-center gap-2"><h2 className="truncate text-sm font-medium text-white">{track.title}</h2>{generated?.approvedAt ? <Check className="h-3 w-3 shrink-0 text-[var(--success)]" /> : null}<span className="hidden rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[var(--text-muted)] 2xl:inline">{track.mood}</span></div><p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{track.prompt}</p></button>
                     <span className="tabular text-right text-xs text-[var(--text-muted)]">{formatDuration(track.durationSeconds)}</span>
                   </motion.article>
                 );
@@ -653,7 +721,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
         </div>
       </section>
 
-      <aside className="panel hidden min-h-0 overflow-hidden rounded-xl p-3 xl:block">
+      <aside className={`panel hidden min-h-0 overflow-hidden rounded-xl p-3 ${focusMode ? "xl:hidden" : "xl:block"}`}>
         <div className="flex items-center justify-between gap-3">
           <SectionTitle label="Inspector" icon={<PanelRight className="h-4 w-4" />} />
           <button onClick={() => (isEditing ? saveProjectEdits() : setIsEditing(true))} disabled={!project.blueprint || busyAction === "save"} className="h-8 rounded-lg bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)] hover:bg-white/[0.08] hover:text-white disabled:opacity-40">{isEditing ? "Done" : "Edit"}</button>
@@ -687,6 +755,8 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
                 <option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option>
               </select>
             </label>
+            <div className="grid grid-cols-3 gap-2 pt-1"><ReferenceUploader projectId={id} onUploaded={loadProject} /><button onClick={() => setCreativeOpen(true)} title="Title and thumbnail variants" aria-label="Title and thumbnail variants" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ImageIcon className="h-3.5 w-3.5" />Variants</button><a href={`/api/projects/${id}/archive`} title="Download project archive" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><Download className="h-3.5 w-3.5" />Archive</a></div>
+            <button onClick={duplicateProject} className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/[.04] text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ListRestart className="h-3.5 w-3.5" />Duplicate project</button>
           </div>
         ) : null}
 
@@ -719,6 +789,10 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
           </div>
         </aside>
       </aside>
+      <TrackAuditionDrawer open={Boolean(auditionTrack)} onClose={() => setAuditionTrack(null)} projectId={id} projectTitle={project.title} track={auditionTrack} versions={auditionTrack ? project.trackVersions?.[auditionTrack.title] ?? (project.generatedTracks?.filter((item) => item.title === auditionTrack.title) ?? []) : []} selectedVersion={auditionTrack ? project.generatedTracks?.find((item) => item.title === auditionTrack.title) : undefined} onRefresh={loadProject} onApplyPrompt={applyTrackPrompt} />
+      <SequenceDrawer open={sequenceOpen} onClose={() => setSequenceOpen(false)} tracks={project.blueprint?.tracks ?? []} production={project.production} onSave={saveStudioState} />
+      <GenerationDrawer open={generationOpen} onClose={() => setGenerationOpen(false)} jobs={jobs} services={setup.services} estimatedCost={generationRate === null ? null : generationRate * ((project.blueprint?.tracks.reduce((sum, track) => sum + track.durationSeconds, 0) ?? 0) / 60)} onRefresh={loadProject} />
+      <CreativeVariantsDrawer open={creativeOpen} onClose={() => setCreativeOpen(false)} projectId={id} variants={project.creativeVariants} onUseTitle={(title) => applyCreativeVariant("youtubeTitle", title)} onUseThumbnail={(prompt) => applyCreativeVariant("coverPrompt", prompt)} onRefresh={loadProject} />
     </div>
   );
 }
@@ -1513,25 +1587,27 @@ function Field({
 
 function BottomPlayer() {
   const { activeTrack, isPlaying, positionSeconds, volume, togglePlaying, seek, setVolume } = usePlayerStore();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [repeat, setRepeat] = useState(false);
 
   useEffect(() => {
-    if (!isPlaying || !activeTrack) return;
-    const timer = window.setInterval(() => {
-      const current = usePlayerStore.getState().positionSeconds;
-      if (current >= activeTrack.durationSeconds) {
-        usePlayerStore.setState({ positionSeconds: 0, isPlaying: false });
-      } else {
-        seek(Math.min(activeTrack.durationSeconds, current + 1));
-      }
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [activeTrack, isPlaying, seek]);
+    const audio = audioRef.current;
+    if (!audio || !activeTrack?.sourceUrl) return;
+    audio.volume = volume / 100;
+    if (isPlaying) audio.play().catch(() => undefined);
+    else audio.pause();
+  }, [activeTrack, isPlaying, volume]);
+
+  useEffect(() => {
+    if (audioRef.current && Math.abs(audioRef.current.currentTime - positionSeconds) > 1.2) audioRef.current.currentTime = positionSeconds;
+  }, [positionSeconds]);
 
   if (!activeTrack) return null;
   const progress = activeTrack.durationSeconds ? positionSeconds / activeTrack.durationSeconds : 0;
 
   return (
     <motion.footer className="panel mt-4 hidden h-20 grid-cols-[300px_150px_minmax(260px,1fr)_120px_190px] items-center gap-4 rounded-xl px-4 lg:grid" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24 }}>
+      <audio ref={audioRef} src={activeTrack.sourceUrl} loop={repeat} onTimeUpdate={(event) => seek(event.currentTarget.currentTime)} onEnded={() => usePlayerStore.setState({ positionSeconds: 0, isPlaying: false })} />
       <div className="flex min-w-0 items-center gap-3">
         <div className="h-14 w-14 shrink-0"><ProjectArtwork title={activeTrack.artworkTitle} compact /></div>
         <div className="min-w-0">
@@ -1548,11 +1624,11 @@ function BottomPlayer() {
       </div>
       <div className="relative min-w-0">
         <Waveform isPlaying={isPlaying} progress={progress} />
-        <input aria-label="Track position" type="range" min={0} max={activeTrack.durationSeconds} value={Math.min(positionSeconds, activeTrack.durationSeconds)} onChange={(event) => seek(Number(event.target.value))} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+        <input aria-label="Track position" type="range" min={0} max={activeTrack.durationSeconds} value={Math.min(positionSeconds, activeTrack.durationSeconds)} onChange={(event) => { const next = Number(event.target.value); seek(next); if (audioRef.current) audioRef.current.currentTime = next; }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
       </div>
       <div className="tabular text-center text-xs text-[var(--text-muted)]">{formatDuration(positionSeconds)} / {formatDuration(activeTrack.durationSeconds)}</div>
       <div className="flex items-center gap-3 text-[var(--text-secondary)]">
-        <button title="Repeat" aria-label="Repeat" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white"><Repeat2 className="h-4 w-4" /></button>
+        <button onClick={() => setRepeat((current) => !current)} title="Repeat" aria-label="Repeat" aria-pressed={repeat} className={`grid h-8 w-8 place-items-center rounded-lg hover:bg-white/[0.05] hover:text-white ${repeat ? "text-[var(--rose-soft)]" : "text-[var(--text-muted)]"}`}><Repeat2 className="h-4 w-4" /></button>
         <Volume2 className="h-4 w-4" />
         <input
           aria-label="Volume"

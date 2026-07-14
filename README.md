@@ -17,13 +17,22 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Generates song and album blueprints with OpenAI once setup is complete.
 - Provides a project review screen for approving blueprints before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.
+- Auditions real generated audio in a persistent waveform transport.
+- Retains per-track generation versions for A/B comparison, selection, approval, download, and targeted regeneration.
+- Refines track prompts with OpenAI while preserving the original prompt and explanation in version history.
+- Provides a draggable album timeline with mastering presets, gaps, fades, target loudness, runtime, and scheduled publishing.
+- Imports audio and artwork references into the protected project export directory.
+- Generates reviewable YouTube title and thumbnail-direction variants before they are applied.
 - Stores projects, prompt versions, jobs, and upload records in a local project database.
 - Records provider usage units for blueprint, music, render, and upload operations.
 - Estimates provider and render costs when optional local rates are configured.
 - Queues music, render, and YouTube upload jobs for a separate Velvet worker process.
+- Supports durable retry, cancellation, deferred upload jobs, and recovery after worker restarts.
+- Runs FFmpeg silence analysis, loudness normalization, fades, and track spacing during release rendering.
+- Exports a portable JSON project archive with prompts, jobs, usage, and upload history.
 - Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
-- Provides a fixed, no-scroll studio interface with dark midnight styling.
+- Provides a fixed, no-scroll studio interface with focus mode, density controls, command palette, animated loading states, and reduced-motion support.
 - Shows empty Projects and Upload History states until real user work exists.
 - Defines the upload history surface that will preserve the prompts used for each uploaded release.
 
@@ -121,7 +130,7 @@ The Playwright suite checks the primary pages at desktop sizes and verifies that
 
 ## Environment
 
-Copy `.env.example` and fill in values when backend persistence and provider integrations are implemented.
+Copy `.env.example` and fill in the values required by your deployment.
 
 ```bash
 cp .env.example .env.local
@@ -154,6 +163,7 @@ Important variables include:
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
 - User-provided Supabase/Postgres connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.
+- Stem downloads appear only when a connected music provider returns stem files; ElevenLabs music generation currently supplies the rendered track used by Velvet.
 
 ## Design Direction
 
