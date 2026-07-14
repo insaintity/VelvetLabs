@@ -102,6 +102,7 @@ type SetupForm = {
   outputFormat: string;
   supabaseUrl: string;
   supabasePublishableKey: string;
+  supabaseServiceRoleKey: string;
   databaseUrl: string;
   storageBucket: string;
   workerSecret: string;
@@ -1084,6 +1085,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     outputFormat: "mp3_44100_128",
     supabaseUrl: "",
     supabasePublishableKey: "",
+    supabaseServiceRoleKey: "",
     databaseUrl: "",
     storageBucket: "velvet-assets",
     workerSecret: "",
@@ -1157,8 +1159,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     setSetupMessage(response.ok ? "Setup saved. Run tests to verify provider keys." : "Setup could not be saved.");
   }
 
-  async function validateProvider(provider: "openai" | "elevenlabs" | "database") {
-    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : provider === "elevenlabs" ? "ElevenLabs" : "database"}...`);
+  async function validateProvider(provider: "openai" | "elevenlabs" | "database" | "storage") {
+    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : provider === "elevenlabs" ? "ElevenLabs" : provider}...`);
     const response = await fetch("/api/setup/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1330,12 +1332,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                   icon={<Database className="h-5 w-5" />}
                   title="Storage & worker"
                   body="Needed later for generated audio, images, videos, logs and long-running jobs."
-                  status="Not configured"
+                  status={formatProviderStatus(providerStatus.worker)}
                 >
                   <AdvancedSetup label="Storage and worker settings">
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Supabase URL" placeholder="https://project.supabase.co" value={setupForm.supabaseUrl} onChange={(value) => updateSetupForm("supabaseUrl", value)} help="Used as the Supabase project reference for future storage/API wiring." />
                       <Field label="Publishable key" placeholder="sb_publishable_..." value={setupForm.supabasePublishableKey} onChange={(value) => updateSetupForm("supabasePublishableKey", value)} help="Safe client-side Supabase key for future storage and auth flows." />
+                      <Field label="Storage service key" placeholder="sb_secret_..." secret value={setupForm.supabaseServiceRoleKey} onChange={(value) => updateSetupForm("supabaseServiceRoleKey", value)} help="Server-only Supabase secret/service-role key. Encrypted locally and never returned to the browser." />
                       <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Where audio, artwork, renders, logs, and metadata will be stored." />
                       <Field label="Database URL" placeholder="postgres://..." secret value={setupForm.databaseUrl} onChange={(value) => updateSetupForm("databaseUrl", value)} help="Saved encrypted. Use the Supabase pooled or direct Postgres connection string." />
                       <Field label="Worker secret" placeholder="Enter secret" secret value={setupForm.workerSecret} onChange={(value) => updateSetupForm("workerSecret", value)} help="Used to verify long-running background job requests." />
@@ -1344,10 +1347,14 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                   <button onClick={() => validateProvider("database")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                     Test Database
                   </button>
+                  <button onClick={() => validateProvider("storage")} className="ml-2 h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                    Test Storage
+                  </button>
                   <button onClick={syncDatabase} className="ml-2 h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                     Initialize & Sync
                   </button>
                   <StatusLine status={providerStatus.database} />
+                  <StatusLine status={providerStatus.worker} />
                 </SetupCard>
                 <SetupCard
                   icon={<ShieldCheck className="h-5 w-5" />}

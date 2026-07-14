@@ -3,7 +3,7 @@ import { decryptSecret, encryptSecret, type EncryptedValue } from "./crypto";
 import { ensureVelvetDir, secretsPath } from "./paths";
 import type { ProviderName } from "./types";
 
-type SecretName = ProviderName | "youtubeRefreshToken" | "databaseUrl" | "workerSecret";
+type SecretName = ProviderName | "youtubeRefreshToken" | "databaseUrl" | "workerSecret" | "supabaseServiceRole";
 
 type SecretStore = Partial<Record<SecretName, EncryptedValue>>;
 
@@ -13,7 +13,8 @@ const envSecretNames: Record<SecretName, string[]> = {
   youtube: [],
   youtubeRefreshToken: ["YOUTUBE_REFRESH_TOKEN"],
   databaseUrl: ["DATABASE_URL"],
-  workerSecret: ["WORKER_SECRET"]
+  workerSecret: ["WORKER_SECRET"],
+  supabaseServiceRole: ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"]
 };
 
 async function readSecretStore(): Promise<SecretStore> {

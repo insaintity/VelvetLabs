@@ -11,7 +11,8 @@ export async function GET() {
       openai: await hasSecret("openai"),
       elevenlabs: await hasSecret("elevenlabs"),
       youtube: await hasSecret("youtubeRefreshToken"),
-      database: await hasSecret("databaseUrl")
+      database: await hasSecret("databaseUrl"),
+      storage: await hasSecret("supabaseServiceRole")
     }
   });
 }
@@ -26,9 +27,11 @@ export async function POST(request: Request) {
   await saveSecret("elevenlabs", body.elevenLabsApiKey ?? "");
   await saveSecret("databaseUrl", body.databaseUrl ?? "");
   await saveSecret("workerSecret", body.workerSecret ?? "");
+  await saveSecret("supabaseServiceRole", body.supabaseServiceRoleKey ?? "");
   const hasOpenAI = Boolean(body.openaiApiKey) || (await hasSecret("openai"));
   const hasElevenLabs = Boolean(body.elevenLabsApiKey) || (await hasSecret("elevenlabs"));
   const hasDatabase = Boolean(body.databaseUrl) || (await hasSecret("databaseUrl"));
+  const hasStorage = Boolean(body.supabaseServiceRoleKey) || (await hasSecret("supabaseServiceRole"));
 
   const setup = await updateSetup({
     openai: {
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
       supabaseUrl: body.supabaseUrl || undefined,
       supabasePublishableKey: body.supabasePublishableKey || undefined,
       storageBucket: body.storageBucket || "velvet-assets",
-      status: { state: "valid", message: "Local storage is ready." },
+      status: { state: hasStorage && body.supabaseUrl ? "unchecked" : "valid", message: hasStorage && body.supabaseUrl ? "Shared storage saved, not checked yet." : "Local storage is ready." },
       databaseStatus: {
         state: hasDatabase ? "unchecked" : "missing",
         message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set."

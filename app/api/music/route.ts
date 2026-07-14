@@ -1,94 +1,18 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
-import { addJob, addUsage, readDatabase, updateJob, writeDatabase } from "@/lib/server/db";
-import { exportsDir } from "@/lib/server/paths";
-import { generateMusicTrack } from "@/lib/server/providers/elevenlabs";
+import { addJob, readDatabase } from "@/lib/server/db";
+import { processJob } from "@/lib/server/job-handlers";
 import { requireSameOrigin } from "@/lib/server/security";
-import { readSecret } from "@/lib/server/secrets";
 
 export async function POST(request: Request) {
   const blocked = requireSameOrigin(request);
   if (blocked) return blocked;
-
-  const { projectId } = await request.json();
+  const { projectId, trackTitle } = await request.json();
   const database = await readDatabase();
-  const project = database.projects.find((item) => item.id === projectId);
-
-  if (!project?.blueprint) {
-    return NextResponse.json({ error: "Project blueprint is required before generating music." }, { status: 404 });
-  }
-
-  const maxTracks = database.setup.budget?.maxTracksPerRun ?? 10;
-  if (project.blueprint.tracks.length > maxTracks) {
-    return NextResponse.json({ error: `This blueprint has ${project.blueprint.tracks.length} tracks. Budget guardrail allows ${maxTracks} per run.` }, { status: 409 });
-  }
-
-  const elevenLabsKey = await readSecret("elevenlabs");
-  if (!elevenLabsKey) {
-    return NextResponse.json({ error: "ElevenLabs setup is required before music generation." }, { status: 409 });
-  }
-
-  const job = await addJob({
-    type: "music",
-    projectId,
-    status: "running",
-    message: "Generating album tracks."
-  });
-
-  try {
-    const projectDir = path.join(exportsDir, project.id);
-    await mkdir(projectDir, { recursive: true });
-    const tracks: Array<{ id: string; title: string; filePath: string; durationSeconds: number; version: number; prompt: string; createdAt: string }> = [];
-
-    for (const [index, track] of project.blueprint.tracks.entries()) {
-      const version = (project.trackVersions?.[track.title]?.length ?? 0) + 1;
-      const audio = await generateMusicTrack({
-        apiKey: elevenLabsKey,
-        prompt: track.prompt,
-        durationSeconds: track.durationSeconds
-      });
-      const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}-v${version}.mp3`);
-      await writeFile(filePath, audio);
-      tracks.push({ id: randomUUID(), title: track.title, filePath, durationSeconds: track.durationSeconds, version, prompt: track.prompt, createdAt: new Date().toISOString() });
-    }
-
-    const latest = await readDatabase();
-    latest.projects = latest.projects.map((item) =>
-      item.id === projectId
-        ? {
-            ...item,
-            status: "generating",
-            generatedTracks: project.blueprint!.tracks.flatMap((blueprintTrack) => {
-              const generated = tracks.find((track) => track.title === blueprintTrack.title) ?? item.generatedTracks?.find((track) => track.title === blueprintTrack.title);
-              return generated ? [generated] : [];
-            }),
-            trackVersions: tracks.reduce((versions, track) => ({ ...versions, [track.title]: [...(item.trackVersions?.[track.title] ?? []), track] }), item.trackVersions ?? {}),
-            updatedAt: new Date().toISOString()
-          }
-        : item
-    );
-    await writeDatabase(latest);
-    await addUsage({
-      provider: "elevenlabs",
-      projectId,
-      operation: "music-generation",
-      units: { tracks: tracks.length, seconds: tracks.reduce((sum, track) => sum + track.durationSeconds, 0) }
-    });
-    await updateJob(job.id, { status: "completed", message: "Music tracks generated.", result: { tracks } });
-
-    return NextResponse.json({ tracks });
-  } catch (error) {
-    await updateJob(job.id, { status: "failed", message: "Music generation failed.", error: error instanceof Error ? error.message : "Unknown error" });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Music generation failed." }, { status: 500 });
-  }
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 64);
+  if (!database.projects.some((project) => project.id === projectId)) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  const job = await addJob({ type: "music", projectId, status: "running", message: "Generating music.", payload: typeof trackTitle === "string" ? { trackTitle } : {} });
+  await processJob(job);
+  const latest = await readDatabase();
+  const completedJob = latest.jobs.find((item) => item.id === job.id);
+  if (completedJob?.status === "failed") return NextResponse.json({ error: completedJob.error ?? completedJob.message }, { status: 500 });
+  return NextResponse.json({ job: completedJob, tracks: latest.projects.find((item) => item.id === projectId)?.generatedTracks, message: completedJob?.message });
 }

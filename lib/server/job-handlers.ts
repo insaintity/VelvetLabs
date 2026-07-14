@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { addUsage, claimNextQueuedJob, readDatabase, updateJob, writeDatabase } from "./db";
+import { materializeMedia, persistMedia, readMedia } from "./media-storage";
 import { exportsDir } from "./paths";
 import { generateMusicTrack } from "./providers/elevenlabs";
 import { refreshYouTubeAccessToken, uploadYouTubeVideo } from "./providers/youtube";
@@ -86,7 +87,8 @@ async function processMusicJob(job: JobRecord) {
     });
     const filePath = path.join(projectDir, `${String(index + 1).padStart(2, "0")}-${slugify(track.title)}-v${version}.mp3`);
     await writeFile(filePath, audio);
-    tracks.push({ id: randomUUID(), title: track.title, filePath, durationSeconds: track.durationSeconds, version, prompt: track.prompt, createdAt: new Date().toISOString() });
+    const storagePath = await persistMedia(filePath, `projects/${project.id}/audio/${path.basename(filePath)}`, "audio/mpeg", database.setup);
+    tracks.push({ id: randomUUID(), title: track.title, filePath, storagePath, durationSeconds: track.durationSeconds, version, prompt: track.prompt, createdAt: new Date().toISOString() });
   }
 
   const latest = await readDatabase();
@@ -129,8 +131,12 @@ async function processRenderJob(job: JobRecord) {
     throw new Error(`Render guardrail reached for this project (${maxRenderAttempts} attempts).`);
   }
 
-  await updateJob(job.id, { message: "Preparing render manifest." });
-  const silenceAnalysis = project.generatedTracks?.length ? await analyzeSilence(project.generatedTracks) : [];
+  await updateJob(job.id, { message: "Preparing shared tracks and render manifest." });
+  const renderTracks = await Promise.all((project.generatedTracks ?? []).map(async (track) => ({
+    ...track,
+    filePath: await materializeMedia({ localPath: track.filePath, storagePath: track.storagePath, fallbackName: `${project.id}-${track.id ?? slugify(track.title)}.mp3`, setup: database.setup })
+  })));
+  const silenceAnalysis = renderTracks.length ? await analyzeSilence(renderTracks) : [];
   const manifest = {
     id: randomUUID(),
     projectId,
@@ -146,16 +152,19 @@ async function processRenderJob(job: JobRecord) {
   await mkdir(projectDir, { recursive: true });
   const filePath = path.join(projectDir, "render-manifest.json");
   await writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const manifestStoragePath = await persistMedia(filePath, `projects/${project.id}/renders/render-manifest.json`, "application/json", database.setup);
 
   let renderStatus: "blocked" | "rendered" = "blocked";
   let message = "Render manifest created. FFmpeg is required for MP4 composition.";
   let videoPath: string | undefined;
+  let videoStoragePath: string | undefined;
 
-  if (project.generatedTracks?.length) {
+  if (renderTracks.length) {
     try {
       await execFileAsync(ffmpegBinary, ["-version"]);
       videoPath = path.join(projectDir, `${project.id}.mp4`);
-      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(project.generatedTracks, videoPath, project.production));
+      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(renderTracks, videoPath, project.production));
+      videoStoragePath = await persistMedia(videoPath, `projects/${project.id}/renders/${project.id}.mp4`, "video/mp4", database.setup);
       renderStatus = "rendered";
       message = "Full album MP4 rendered with FFmpeg.";
     } catch {
@@ -171,7 +180,7 @@ async function processRenderJob(job: JobRecord) {
       ? {
           ...item,
           status: renderStatus === "rendered" ? "rendered" : item.status,
-          render: { manifestPath: filePath, videoPath, status: renderStatus, message },
+          render: { manifestPath: filePath, manifestStoragePath, videoPath, videoStoragePath, status: renderStatus, message },
           updatedAt: new Date().toISOString()
         }
       : item
@@ -186,7 +195,7 @@ async function processRenderJob(job: JobRecord) {
       seconds: project.generatedTracks?.reduce((sum, track) => sum + track.durationSeconds, 0) ?? 0
     }
   });
-  await updateJob(job.id, { status: renderStatus === "rendered" ? "completed" : "blocked", message, result: { manifestPath: filePath, videoPath } });
+  await updateJob(job.id, { status: renderStatus === "rendered" ? "completed" : "blocked", message, result: { manifestPath: filePath, manifestStoragePath, videoPath, videoStoragePath } });
 }
 
 async function analyzeSilence(tracks: GeneratedTrack[]) {
@@ -216,17 +225,12 @@ async function processYouTubeUploadJob(job: JobRecord) {
   }
 
   const requestedVideoPath = typeof job.payload?.videoPath === "string" ? job.payload.videoPath : project.render?.videoPath;
-  if (!requestedVideoPath) {
+  if (!requestedVideoPath && !project.render?.videoStoragePath) {
     throw new Error("Render an MP4 before uploading.");
   }
-
-  const safeRoot = path.resolve(exportsDir);
-  const safeVideoPath = path.resolve(requestedVideoPath);
-  if (safeVideoPath !== safeRoot && !safeVideoPath.startsWith(`${safeRoot}${path.sep}`)) {
-    throw new Error("Video path must be inside the Velvet export folder.");
-  }
-
-  const idempotencyKey = createHash("sha256").update(`${projectId}:${safeVideoPath}:${privacy}`).digest("hex");
+  const safeVideoPath = await materializeMedia({ localPath: requestedVideoPath, storagePath: project.render?.videoStoragePath, fallbackName: `${project.id}.mp4`, setup: database.setup });
+  const mediaIdentity = project.render?.videoStoragePath || safeVideoPath;
+  const idempotencyKey = createHash("sha256").update(`${projectId}:${mediaIdentity}:${privacy}`).digest("hex");
   const existingUpload = database.uploads.find((upload) => upload.status === "uploaded" && upload.idempotencyKey === idempotencyKey);
   if (existingUpload) {
     await updateJob(job.id, { status: "completed", message: "Upload already exists. Returning existing YouTube record.", result: existingUpload });
@@ -234,7 +238,7 @@ async function processYouTubeUploadJob(job: JobRecord) {
   }
 
   await updateJob(job.id, { message: "Uploading video to YouTube." });
-  const video = await readFile(safeVideoPath);
+  const video = await readMedia(safeVideoPath, project.render?.videoStoragePath, database.setup);
   const token = await refreshYouTubeAccessToken(refreshToken);
   const upload = await uploadYouTubeVideo({
     accessToken: token.access_token,
@@ -254,7 +258,9 @@ async function processYouTubeUploadJob(job: JobRecord) {
     videoId: upload.id,
     url: `https://www.youtube.com/watch?v=${upload.id}`,
     videoPath: safeVideoPath,
+    videoStoragePath: project.render?.videoStoragePath,
     manifestPath: project.render?.manifestPath,
+    manifestStoragePath: project.render?.manifestStoragePath,
     idempotencyKey,
     prompts: latest.prompts
       .filter((prompt) => prompt.projectId === projectId)

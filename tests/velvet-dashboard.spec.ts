@@ -100,8 +100,10 @@ test.describe("Velvet dashboard", () => {
     await page.getByText("Storage and worker settings").click();
     await expect(page.getByLabel("Supabase URL")).toBeVisible();
     await expect(page.getByLabel("Publishable key")).toBeVisible();
+    await expect(page.getByLabel("Storage service key")).toBeVisible();
     await expect(page.getByLabel("Database URL")).toBeVisible();
     await expect(page.getByRole("button", { name: "Test Database" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Test Storage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Initialize & Sync" })).toBeVisible();
     await expect(page.getByLabel("Max tracks/run")).toBeVisible();
     await expect(page.getByLabel("Max render attempts")).toBeVisible();

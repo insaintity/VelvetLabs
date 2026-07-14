@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { readDatabase, updateProject } from "@/lib/server/db";
+import { persistMedia } from "@/lib/server/media-storage";
 import { exportsDir } from "@/lib/server/paths";
 import { requireSameOrigin } from "@/lib/server/security";
 
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
   const extension = path.extname(file.name).replace(/[^.a-z0-9]/gi, "").slice(0, 8);
   const filePath = path.join(directory, `${randomUUID()}${extension}`);
   await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
-  const asset: NonNullable<typeof project.referenceAssets>[number] = { id: randomUUID(), name: file.name.slice(0, 180), kind, filePath, createdAt: new Date().toISOString() };
+  const storagePath = await persistMedia(filePath, `projects/${projectId}/references/${path.basename(filePath)}`, file.type, database.setup);
+  const asset: NonNullable<typeof project.referenceAssets>[number] = { id: randomUUID(), name: file.name.slice(0, 180), kind, filePath, storagePath, createdAt: new Date().toISOString() };
   await updateProject(projectId, { referenceAssets: [...(project.referenceAssets ?? []), asset] });
   return NextResponse.json({ asset });
 }

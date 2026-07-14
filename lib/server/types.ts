@@ -68,6 +68,7 @@ export type GeneratedTrack = {
   id?: string;
   title: string;
   filePath: string;
+  storagePath?: string;
   durationSeconds: number;
   version?: number;
   prompt?: string;
@@ -99,6 +100,7 @@ export type ProjectRecord = {
     name: string;
     kind: "audio" | "artwork";
     filePath: string;
+    storagePath?: string;
     createdAt: string;
   }>;
   creativeVariants?: {
@@ -108,7 +110,9 @@ export type ProjectRecord = {
   };
   render?: {
     manifestPath: string;
+    manifestStoragePath?: string;
     videoPath?: string;
+    videoStoragePath?: string;
     status: "blocked" | "rendered";
     message: string;
   };
@@ -146,7 +150,9 @@ export type UploadRecord = {
   videoId?: string;
   url?: string;
   videoPath?: string;
+  videoStoragePath?: string;
   manifestPath?: string;
+  manifestStoragePath?: string;
   idempotencyKey?: string;
   prompts?: Array<{
     kind: string;

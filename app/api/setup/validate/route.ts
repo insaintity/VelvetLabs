@@ -3,6 +3,7 @@ import { readDatabase, updateSetup } from "@/lib/server/db";
 import { validateElevenLabsKey } from "@/lib/server/providers/elevenlabs";
 import { validateOpenAIKey } from "@/lib/server/providers/openai";
 import { validatePostgresConnection } from "@/lib/server/providers/postgres";
+import { getStorageConfig, validateStorage } from "@/lib/server/providers/storage";
 import { requireSameOrigin } from "@/lib/server/security";
 import { readSecret } from "@/lib/server/secrets";
 
@@ -76,6 +77,34 @@ export async function POST(request: Request) {
       }
     });
     return NextResponse.json({ status: setup.worker?.databaseStatus }, { status: result.valid ? 200 : 401 });
+  }
+
+  if (provider === "storage") {
+    const database = await readDatabase();
+    const config = await getStorageConfig(database.setup);
+    if (!config) {
+      const setup = await updateSetup({
+        worker: {
+          supabaseUrl: database.setup.worker?.supabaseUrl,
+          supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
+          storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
+          status: { state: "missing", message: "Add a Supabase URL and server-side storage key first.", checkedAt: now },
+          databaseStatus: database.setup.worker?.databaseStatus
+        }
+      });
+      return NextResponse.json({ status: setup.worker?.status }, { status: 400 });
+    }
+    const result = await validateStorage(config);
+    const setup = await updateSetup({
+      worker: {
+        supabaseUrl: database.setup.worker?.supabaseUrl,
+        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
+        storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
+        status: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now },
+        databaseStatus: database.setup.worker?.databaseStatus
+      }
+    });
+    return NextResponse.json({ status: setup.worker?.status }, { status: result.valid ? 200 : 401 });
   }
 
   return NextResponse.json({ error: "Unknown provider." }, { status: 400 });

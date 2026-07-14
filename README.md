@@ -22,6 +22,8 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Refines track prompts with OpenAI while preserving the original prompt and explanation in version history.
 - Provides a draggable album timeline with mastering presets, gaps, fades, target loudness, runtime, and scheduled publishing.
 - Imports audio and artwork references into the protected project export directory.
+- Mirrors generated audio, references, manifests, and rendered video into a private Supabase Storage bucket when server credentials are configured.
+- Restores shared media automatically when Railway web and worker services do not share a local filesystem.
 - Generates reviewable YouTube title and thumbnail-direction variants before they are applied.
 - Stores projects, prompt versions, jobs, and upload records in a local project database.
 - Records provider usage units for blueprint, music, render, and upload operations.
@@ -145,6 +147,8 @@ Important variables include:
 - `YOUTUBE_REDIRECT_URI` such as `http://localhost:3000/api/youtube/callback`
 - `FFMPEG_PATH` optional path to `ffmpeg.exe` when FFmpeg is not on PATH
 - `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` or the legacy `SUPABASE_SERVICE_ROLE_KEY` for server-only private media storage
+- `SUPABASE_STORAGE_BUCKET`, defaulting to `velvet-assets`
 - `DATABASE_URL`
 - `VELVET_DATABASE_MODE` set to `postgres` to mirror runtime records into the configured database
 - `VELVET_SECRET_PROVIDER` set to `env` to read secrets from deployment environment variables
@@ -157,11 +161,12 @@ Important variables include:
 
 ## Current Limitations
 
-- The local `.velvet/` database is intended for development and single-user desktop use.
+- The local `.velvet/` database and media cache are intended for development and single-user desktop use.
 - Long-running music, render, and upload work is queued for the worker process. Production should run the worker as a managed service/container.
 - The render endpoint creates a render manifest and renders a release MP4 when FFmpeg is available.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
 - User-provided Supabase/Postgres connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
+- Shared Supabase Storage is optional locally and required when production web and worker services do not share a persistent volume.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.
 - Stem downloads appear only when a connected music provider returns stem files; ElevenLabs music generation currently supplies the rendered track used by Velvet.
 
