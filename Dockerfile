@@ -1,6 +1,7 @@
 FROM node:22-bookworm-slim AS dependencies
 
 WORKDIR /app
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -16,11 +17,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV FFMPEG_PATH=ffmpeg
 
-RUN apt-get update \
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev \
+  && apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=builder /app/.next/standalone ./.next/standalone
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public

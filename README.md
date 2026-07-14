@@ -79,6 +79,18 @@ For one-off local checks, process at most one queued job:
 npm run worker:once
 ```
 
+## Windows Desktop
+
+Build a self-contained portable Windows executable with the Velvet server, durable worker, and FFmpeg bundled inside:
+
+```bash
+npm run desktop:dist
+```
+
+The executable is written to `release/`. Desktop projects and encrypted credentials are stored under the current Windows user's Velvet application-data directory, so replacing the executable does not remove studio data.
+
+The portable build extracts its bundled runtime on launch, so the first start can take around 30-60 seconds. Later launches are normally faster while Windows retains the extracted files.
+
 For production worker deployment, see `docs/DEPLOYMENT.md` and `Dockerfile.worker`.
 
 Railway is the recommended low-cost production target. The root Docker image includes FFmpeg and runs the web app plus a supervised worker in one service, allowing Velvet and Postgres to fit within Railway's entry-plan service limit.
