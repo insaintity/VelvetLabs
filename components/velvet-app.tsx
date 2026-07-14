@@ -897,7 +897,7 @@ function SettingsWorkspace() {
         <section className="panel rounded-xl p-4">
           <SectionTitle label="Onboarding" />
           <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--text-secondary)]">
-            Connect the minimum services Velvet needs: ChatGPT for creative planning, ElevenLabs for music, and YouTube for private review uploads. Secrets are stored encrypted locally or read from production environment vaults.
+            Connect only what Velvet needs to create and publish: ChatGPT for planning, ElevenLabs for music, and YouTube for private review uploads. Model and format defaults are handled automatically.
           </p>
 
           <div className="mt-3 grid grid-cols-[120px_1fr] gap-3">
@@ -950,13 +950,8 @@ function SettingsWorkspace() {
                     <button onClick={() => validateProvider("openai")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                       Test ChatGPT key
                     </button>
-                    <AdvancedSetup label="Model defaults">
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Planning model" placeholder="Velvet decides" value={setupForm.planningModel} onChange={(value) => updateSetupForm("planningModel", value)} />
-                        <Field label="Image model" placeholder="Velvet decides" value={setupForm.imageModel} onChange={(value) => updateSetupForm("imageModel", value)} />
-                      </div>
-                    </AdvancedSetup>
                   </div>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">Velvet chooses the planning and image models automatically.</p>
                   <StatusLine status={providerStatus.openai} />
                 </SetupCard>
 
@@ -976,15 +971,10 @@ function SettingsWorkspace() {
                   />
                   <div className="flex gap-2">
                     <button onClick={() => validateProvider("elevenlabs")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
-                      Test ElevenLabs key
+                      Check key & usage
                     </button>
-                    <AdvancedSetup label="Music defaults">
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Music model" placeholder="Velvet decides" value={setupForm.musicModel} onChange={(value) => updateSetupForm("musicModel", value)} />
-                        <Field label="Output format" placeholder="Velvet decides" value={setupForm.outputFormat} onChange={(value) => updateSetupForm("outputFormat", value)} />
-                      </div>
-                    </AdvancedSetup>
                   </div>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">Velvet uses the default ElevenLabs music model and reads quota usage from the key.</p>
                   <StatusLine status={providerStatus.elevenlabs} />
                 </SetupCard>
               </div>
