@@ -1280,7 +1280,9 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
           <div className="settings-progress mt-3 grid grid-cols-[120px_1fr] gap-3">
             <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
               <div className="text-xs text-[var(--text-muted)]">Setup progress</div>
-              <div className="mt-2 font-serif text-[34px] leading-none">{setup.readyCount} / 3</div>
+              <div className="setup-progress-count mt-2 whitespace-nowrap text-[28px] font-semibold leading-none tabular-nums tracking-normal text-white">
+                {setup.readyCount}<span className="mx-1 text-[var(--text-muted)]">/</span>3
+              </div>
               <div className="mt-2 h-1.5 rounded-full bg-black/25">
                 <div
                   className="h-full rounded-full bg-[linear-gradient(90deg,var(--blue),var(--rose))] transition-[width] duration-500"

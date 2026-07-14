@@ -129,6 +129,8 @@ test.describe("Velvet dashboard", () => {
     await page.goto("/settings");
 
     await expect(page.getByRole("heading", { name: "Onboarding" })).toBeVisible();
+    await expect(page.locator(".setup-progress-count")).toHaveCSS("font-size", "28px");
+    await expect(page.locator(".setup-progress-count span")).toHaveCSS("font-size", "28px");
     await expect(page.getByRole("heading", { name: "ChatGPT / OpenAI" })).toBeVisible();
     await page.getByRole("button", { name: "ElevenLabs" }).click();
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
