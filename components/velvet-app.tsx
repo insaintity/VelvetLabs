@@ -1521,7 +1521,7 @@ function NewProjectFlow() {
 
   return (
     <div className="flex min-h-0 flex-1 items-center overflow-hidden p-3 lg:p-5">
-      <div className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-4 xl:grid-cols-[1fr_340px] xl:gap-5">
+      <div className={`mx-auto grid w-full grid-cols-1 gap-4 xl:gap-5 ${promptProducerOpen ? "max-w-[1200px] xl:grid-cols-[minmax(0,1fr)_380px]" : "max-w-[1120px] xl:grid-cols-[1fr_340px]"}`}>
         <section className="panel glass-panel-strong rounded-xl p-6">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rose-soft)]">New media</div>
           <h1 className="mt-2 text-[38px] font-semibold leading-[1.08] text-white">Describe the song or album.</h1>
@@ -1579,21 +1579,29 @@ function NewProjectFlow() {
             </button>
           </div>
         </section>
-        <aside className="hidden space-y-4 xl:block">
-          <EmptyPanel title="Release type" body="Songs create one-track blueprints. Albums create a multi-track plan with YouTube-ready metadata." />
-          <EmptyPanel title="Optional" body="After the prompt, Velvet can ask for length, track count, vocals and workflow mode only if needed." />
-          <EmptyPanel title="Before generation" body="You will review the blueprint first. ChatGPT and ElevenLabs calls stay blocked until approved." />
-        </aside>
+        <div className="hidden min-h-0 xl:block">
+          <AnimatePresence mode="wait">
+            {promptProducerOpen ? (
+              <PromptProducer
+                key="prompt-producer"
+                open
+                mediaType={mediaType}
+                onClose={() => setPromptProducerOpen(false)}
+                onComplete={(prompt, source) => {
+                  setBrief(prompt);
+                  setMessage(source === "ai" ? "Prompt Producer created this brief with ChatGPT. Review or edit it before continuing." : "Prompt created. Review or edit it before continuing.");
+                }}
+              />
+            ) : (
+              <motion.div key="new-media-guidance" className="space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <EmptyPanel title="Release type" body="Songs create one-track blueprints. Albums create a multi-track plan with YouTube-ready metadata." />
+                <EmptyPanel title="Optional" body="After the prompt, Velvet can ask for length, track count, vocals and workflow mode only if needed." />
+                <EmptyPanel title="Before generation" body="You will review the blueprint first. ChatGPT and ElevenLabs calls stay blocked until approved." />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-      <PromptProducer
-        open={promptProducerOpen}
-        mediaType={mediaType}
-        onClose={() => setPromptProducerOpen(false)}
-        onComplete={(prompt, source) => {
-          setBrief(prompt);
-          setMessage(source === "ai" ? "Prompt Producer created this brief with ChatGPT. Review or edit it before continuing." : "Prompt created. Review or edit it before continuing.");
-        }}
-      />
     </div>
   );
 }

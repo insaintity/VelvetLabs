@@ -163,27 +163,18 @@ export function PromptProducer({
     }
   }
 
+  if (!open) return null;
+
   return (
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          className="prompt-producer-backdrop fixed inset-0 z-[70] grid place-items-center p-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-        >
-          <motion.section
-            role="dialog"
-            aria-modal="true"
+          <motion.aside
             aria-labelledby="prompt-producer-title"
-            className="prompt-producer-dialog flex max-h-[min(700px,calc(100vh-24px))] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl"
-            initial={{ opacity: 0, y: 14, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.99 }}
+            className="prompt-producer-dialog flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl"
+            initial={{ opacity: 0, x: 14 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4 sm:px-6">
+            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border-active)] bg-[rgba(226,102,174,.1)] text-[var(--rose-soft)]">
                   <WandSparkles className="h-4 w-4" />
@@ -202,16 +193,16 @@ export function PromptProducer({
               <motion.div className="h-full bg-[linear-gradient(90deg,var(--violet),var(--rose))]" animate={{ width: `${((safeStep + 1) / questions.length) * 100}%` }} />
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col px-5 py-5 sm:px-8 sm:py-7">
+            <div className="flex min-h-0 flex-1 flex-col px-4 py-5">
               <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[.16em] text-[var(--rose-soft)]">
                 <span>{current.eyebrow}</span>
                 <span className="text-[var(--text-muted)]">{String(safeStep + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}</span>
               </div>
               <AnimatePresence mode="wait">
                 <motion.div key={current.id} className="mt-4 flex min-h-0 flex-1 flex-col" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.16 }}>
-                  <h3 className="max-w-xl text-2xl font-semibold leading-tight text-white sm:text-[28px]">{current.question}</h3>
+                  <h3 className="text-xl font-semibold leading-tight text-white">{current.question}</h3>
                   {current.options ? (
-                    <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="mt-5 grid grid-cols-2 gap-2">
                       {current.options.map((option) => {
                         const active = selectedValues.includes(option);
                         return (
@@ -251,7 +242,7 @@ export function PromptProducer({
               </AnimatePresence>
             </div>
 
-            <footer className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-5 py-4 sm:px-6">
+            <footer className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-4">
               <button type="button" onClick={moveBack} disabled={safeStep === 0 || isComposing} className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm text-[var(--text-secondary)] transition hover:bg-white/[.05] hover:text-white disabled:invisible">
                 <ArrowLeft className="h-4 w-4" /> Back
               </button>
@@ -268,9 +259,6 @@ export function PromptProducer({
                 )}
               </div>
             </footer>
-          </motion.section>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          </motion.aside>
   );
 }

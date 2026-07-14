@@ -160,10 +160,6 @@ select:focus-visible {
     rgba(46, 39, 62, 0.5);
 }
 
-.prompt-producer-backdrop {
-  background: rgba(7, 6, 13, 0.9);
-}
-
 .prompt-producer-dialog {
   isolation: isolate;
   background:
