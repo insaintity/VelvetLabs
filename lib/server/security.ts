@@ -7,9 +7,20 @@ export function requireSameOrigin(request: Request) {
     return null;
   }
 
-  if (origin !== new URL(request.url).origin) {
+  if (origin !== getRequestOrigin(request)) {
     return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   }
 
   return null;
+}
+
+function getRequestOrigin(request: Request) {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
 }
