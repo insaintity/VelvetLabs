@@ -258,6 +258,7 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "Open command palette" }).click();
     const commands = page.getByRole("dialog", { name: "Velvet commands" });
     await expect(commands).toBeVisible();
+    await expect(commands.getByRole("textbox", { name: "Search commands" })).toHaveCSS("box-shadow", "none");
     await expect(commands.getByRole("link", { name: /New Media/ })).toBeVisible();
     await page.getByRole("button", { name: "Close command palette" }).click();
 

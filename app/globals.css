@@ -103,6 +103,10 @@ select:focus-visible {
   box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(239, 99, 152, 0.62);
 }
 
+.command-search:focus-visible {
+  box-shadow: none;
+}
+
 .panel {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.018) 46%, rgba(255, 255, 255, 0.035)),

@@ -66,7 +66,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search Velvet"
                 aria-label="Search commands"
-                className="h-full min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-[var(--text-muted)]"
+                className="command-search h-full min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-[var(--text-muted)]"
               />
               <button onClick={onClose} title="Close command palette" aria-label="Close command palette" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white">
                 <X className="h-4 w-4" />
