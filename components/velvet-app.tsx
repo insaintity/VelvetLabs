@@ -48,6 +48,7 @@ import { usePlayerStore } from "@/store/player-store";
 import { CommandPalette, ProjectArtwork, StatusPill, Waveform } from "@/components/studio-chrome";
 import { CreativeVariantsDrawer, emitToast, GenerationDrawer, ReferenceUploader, SequenceDrawer, ToastHost, TrackAuditionDrawer, type StudioProduction, type StudioTrack } from "@/components/project-studio-tools";
 import { AnalyticsWorkspace, PublishingWorkspace } from "@/components/publishing-workspaces";
+import { PromptProducer } from "@/components/prompt-producer";
 
 export function VelvetApp() {
   const pathname = usePathname();
@@ -1491,6 +1492,7 @@ function NewProjectFlow() {
   const [brief, setBrief] = useState("");
   const [message, setMessage] = useState("Blueprint generation uses your encrypted OpenAI key after setup.");
   const [isCreating, setIsCreating] = useState(false);
+  const [promptProducerOpen, setPromptProducerOpen] = useState(false);
 
   async function createBlueprint() {
     setIsCreating(true);
@@ -1543,10 +1545,21 @@ function NewProjectFlow() {
               </button>
             ))}
           </div>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="text-[10px] font-semibold uppercase tracking-[.15em] text-[var(--text-muted)]">Production brief</span>
+            <button
+              type="button"
+              onClick={() => setPromptProducerOpen(true)}
+              className="flex h-9 items-center gap-2 rounded-lg border border-[var(--border-active)] bg-[rgba(226,102,174,.08)] px-3 text-xs font-medium text-[var(--rose-soft)] transition hover:bg-[rgba(226,102,174,.14)]"
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              Prompt Producer
+            </button>
+          </div>
           <textarea
             value={brief}
             onChange={(event) => setBrief(event.target.value)}
-            className="glass-control mt-4 min-h-[204px] w-full resize-none rounded-xl p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
+            className="glass-control mt-2 min-h-[180px] w-full resize-none rounded-xl p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
             placeholder={
               mediaType === "song"
                 ? "Example: A smoky late-night jazz single with slow saxophone, intimate piano, brushed drums, and a cinematic noir mood. Around four minutes."
@@ -1572,6 +1585,15 @@ function NewProjectFlow() {
           <EmptyPanel title="Before generation" body="You will review the blueprint first. ChatGPT and ElevenLabs calls stay blocked until approved." />
         </aside>
       </div>
+      <PromptProducer
+        open={promptProducerOpen}
+        mediaType={mediaType}
+        onClose={() => setPromptProducerOpen(false)}
+        onComplete={(prompt, source) => {
+          setBrief(prompt);
+          setMessage(source === "ai" ? "Prompt Producer created this brief with ChatGPT. Review or edit it before continuing." : "Prompt created. Review or edit it before continuing.");
+        }}
+      />
     </div>
   );
 }

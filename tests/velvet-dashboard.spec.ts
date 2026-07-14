@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const fixtureProjectId = "playwright-blueprint";
@@ -7,10 +7,9 @@ const fixtureProjectId = "playwright-blueprint";
 async function writeFixtureDatabase() {
   const velvetDirectory = path.join(process.cwd(), ".velvet");
   const databaseFile = path.join(velvetDirectory, "db.json");
-  const temporaryFile = path.join(velvetDirectory, `db-${process.pid}-${Date.now()}.json`);
   await mkdir(velvetDirectory, { recursive: true });
   await writeFile(
-    temporaryFile,
+    databaseFile,
     `${JSON.stringify(
       {
         setup: {},
@@ -59,7 +58,6 @@ async function writeFixtureDatabase() {
       2
     )}\n`
   );
-  await rename(temporaryFile, databaseFile);
 }
 
 test.describe("Velvet dashboard", () => {
@@ -87,9 +85,37 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Song" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Album" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create Blueprint" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Prompt Producer" })).toBeVisible();
     await expect(page.getByText("ChatGPT and ElevenLabs calls stay blocked until approved.")).toBeVisible();
     await expect(page.getByRole("link", { name: "New Media" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("link", { name: "Projects" })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  test("builds an editable brief with Prompt Producer", async ({ page }) => {
+    await page.route("**/api/prompts/compose", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ prompt: "A warm analog jazz song led by piano and saxophone, with a gradual cinematic build and no vocals.", source: "ai" })
+      });
+    });
+    await page.goto("/projects/new");
+    await page.getByRole("button", { name: "Prompt Producer" }).click();
+    await expect(page.getByRole("dialog", { name: "Prompt Producer" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Jazz" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "Intimate" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "Piano" }).click();
+    await page.getByRole("button", { name: "Saxophone" }).click();
+
+    while (await page.getByRole("button", { name: /^(Next|Skip)$/ }).isVisible().catch(() => false)) {
+      await page.getByRole("button", { name: /^(Next|Skip)$/ }).click();
+    }
+    await page.getByRole("button", { name: "Create Prompt" }).click();
+    await expect(page.getByLabel("Media brief")).toHaveValue(/warm analog jazz song/);
+    await expect(page.getByText("Prompt Producer created this brief with ChatGPT.")).toBeVisible();
   });
 
   test("shows focused onboarding for ChatGPT, ElevenLabs and YouTube", async ({ page }) => {

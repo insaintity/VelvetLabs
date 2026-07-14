@@ -139,6 +139,55 @@ export async function refineMusicPrompt({ apiKey, model, prompt }: { apiKey: str
   return { ...JSON.parse(raw), raw, usage: data.usage } as { prompt: string; explanation: string; raw: string; usage?: Record<string, number> };
 }
 
+export async function composeMusicPrompt({
+  apiKey,
+  model,
+  mediaType,
+  answers
+}: {
+  apiKey: string;
+  model: string;
+  mediaType: MediaType;
+  answers: Record<string, string>;
+}) {
+  const response = await fetch(`${openaiBaseUrl}/responses`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content:
+            "You are Velvet's senior music producer. Turn the creator's interview answers into one polished AI music production brief. Preserve every meaningful choice, resolve gaps conservatively, and include genre, mood, foreground instruments, vocals, tempo, arrangement arc, production character, release scale, listening context, and exclusions when supplied. Write one dense but readable paragraph. Do not imitate a named artist or add claims the creator did not request."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ releaseType: mediaType, creativeDirection: answers })
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "music_production_brief",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["prompt"],
+            properties: { prompt: { type: "string" } }
+          }
+        }
+      }
+    })
+  });
+
+  if (!response.ok) throw new Error(`OpenAI prompt creation failed (${response.status}).`);
+  const data = await response.json();
+  const raw = data.output_text ?? data.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? []).map((item: { text?: string }) => item.text ?? "").join("");
+  return { ...JSON.parse(raw), raw, usage: data.usage } as { prompt: string; raw: string; usage?: Record<string, number> };
+}
+
 export async function generateCreativeVariants({ apiKey, model, title, concept, coverPrompt }: { apiKey: string; model: string; title: string; concept: string; coverPrompt: string }) {
   const response = await fetch(`${openaiBaseUrl}/responses`, {
     method: "POST",
