@@ -1,13 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const fixtureProjectId = "playwright-blueprint";
 
 async function writeFixtureDatabase() {
-  await mkdir(path.join(process.cwd(), ".velvet"), { recursive: true });
+  const velvetDirectory = path.join(process.cwd(), ".velvet");
+  const databaseFile = path.join(velvetDirectory, "db.json");
+  const temporaryFile = path.join(velvetDirectory, `db-${process.pid}-${Date.now()}.json`);
+  await mkdir(velvetDirectory, { recursive: true });
   await writeFile(
-    path.join(process.cwd(), ".velvet", "db.json"),
+    temporaryFile,
     `${JSON.stringify(
       {
         setup: {},
@@ -38,7 +41,8 @@ async function writeFixtureDatabase() {
                 description: "A cinematic AI jazz album.",
                 tags: ["jazz", "ai music"]
               }
-            }
+            },
+            generatedTracks: [{ title: "Amber Masque", filePath: ".velvet/exports/amber-masque.mp3", durationSeconds: 180 }]
           }
         ],
         prompts: [],
@@ -49,6 +53,7 @@ async function writeFixtureDatabase() {
       2
     )}\n`
   );
+  await rename(temporaryFile, databaseFile);
 }
 
 test.describe("Velvet dashboard", () => {
@@ -60,7 +65,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("Connect ChatGPT, ElevenLabs, and YouTube before creating the first release.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start Setup" }).first()).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("link", { name: "Setup Required" })).toHaveAttribute("href", "/settings");
-    await expect(page.getByRole("button", { name: /Play|Pause/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Play|Pause/ })).toHaveCount(0);
 
     const screenshot = await page.screenshot({ fullPage: true });
     await testInfo.attach(`dashboard-${testInfo.project.name}.png`, {
@@ -86,11 +91,12 @@ test.describe("Velvet dashboard", () => {
 
     await expect(page.getByRole("heading", { name: "Onboarding" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "ChatGPT / OpenAI" })).toBeVisible();
+    await page.getByRole("button", { name: "ElevenLabs" }).click();
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Login to YouTube" })).toHaveAttribute("href", "/api/youtube/login");
-    await page.getByRole("button", { name: "03 Review" }).click();
+    await page.getByRole("button", { name: "03 Advanced" }).click();
     await page.getByText("Storage and worker settings").click();
     await expect(page.getByLabel("Supabase URL")).toBeVisible();
     await expect(page.getByLabel("Publishable key")).toBeVisible();
@@ -148,7 +154,23 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "Edit" }).click();
     await expect(page.getByLabel("YouTube title")).toBeVisible();
     await expect(page.getByLabel("Privacy")).toBeVisible();
+    await page.getByRole("button", { name: "Usage" }).click();
     await expect(page.getByText("No usage recorded yet.")).toBeVisible();
+  });
+
+  test("opens commands and promotes generated audio into the studio transport", async ({ page }) => {
+    await writeFixtureDatabase();
+    await page.goto(`/projects/${fixtureProjectId}`);
+
+    await page.getByRole("button", { name: "Open command palette" }).click();
+    const commands = page.getByRole("dialog", { name: "Velvet commands" });
+    await expect(commands).toBeVisible();
+    await expect(commands.getByRole("link", { name: /New Media/ })).toBeVisible();
+    await page.getByRole("button", { name: "Close command palette" }).click();
+
+    await page.getByRole("button", { name: "Play Amber Masque" }).click();
+    await expect(page.getByText("Amber Masque").last()).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Track position" })).toBeVisible();
   });
 
   test("keeps primary pages inside the fixed studio frame", async ({ page }) => {

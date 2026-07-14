@@ -2,21 +2,31 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Activity,
   ArrowRight,
+  Check,
+  Clapperboard,
   Database,
   FileText,
   HelpCircle,
-  History,
   KeyRound,
   Lock,
+  ListMusic,
   Music2,
+  PanelRight,
   Pause,
   Play,
   Plus,
+  Repeat2,
+  Save,
+  Search,
   ShieldCheck,
+  SkipBack,
+  SkipForward,
   Sparkles,
-  UploadCloud,
+  Upload,
   Volume2,
+  WandSparkles,
   Youtube
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -26,22 +36,39 @@ import { usePathname } from "next/navigation";
 import { historyColumns, historyPromptTypes, navItems, safetyDefaults, setupSteps } from "@/lib/app-data";
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
+import { CommandPalette, ProjectArtwork, StatusPill, Waveform } from "@/components/studio-chrome";
 
 export function VelvetApp() {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
   const setupOverview = useSetupOverview();
+  const activeTrack = usePlayerStore((state) => state.activeTrack);
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <main className="relative z-10 h-screen min-w-0 overflow-hidden p-3 text-[15px] lg:p-5">
-      <div className="grid h-[calc(100vh-24px)] grid-cols-[64px_minmax(0,1fr)] gap-3 lg:h-[calc(100vh-136px)] lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-5">
+      <div className={`grid h-[calc(100vh-24px)] grid-cols-[64px_minmax(0,1fr)] gap-3 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-5 ${activeTrack ? "lg:h-[calc(100vh-136px)]" : "lg:h-[calc(100vh-40px)]"}`}>
         <Sidebar pathname={pathname} setup={setupOverview} />
         <section className="panel flex min-h-0 flex-col overflow-hidden rounded-2xl lg:rounded-[22px]">
-          <TopBar pageTitle={pageTitle} setup={setupOverview} />
-          {pathname === "/projects/new" ? <NewProjectFlow /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
+          <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} />
+          <motion.div key={pathname} className="flex min-h-0 flex-1" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}>
+            {pathname === "/projects/new" ? <NewProjectFlow /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
+          </motion.div>
         </section>
       </div>
       <BottomPlayer />
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
     </main>
   );
 }
@@ -253,7 +280,7 @@ function isActiveNavItem(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
 }
 
-function TopBar({ pageTitle, setup }: { pageTitle: string; setup: SetupOverview }) {
+function TopBar({ pageTitle, setup, onOpenCommand }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void }) {
   return (
     <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/10 px-3 lg:h-[62px] lg:px-6">
       <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
@@ -264,6 +291,9 @@ function TopBar({ pageTitle, setup }: { pageTitle: string; setup: SetupOverview 
         <span className="text-[var(--text-primary)]">{pageTitle}</span>
       </div>
       <div className="flex items-center gap-3">
+        <button onClick={onOpenCommand} title="Open command palette" aria-label="Open command palette" className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-white">
+          <Search className="h-4 w-4" />
+        </button>
         {setup.isComplete ? (
           <Link href="/settings" className="flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 text-sm text-[var(--text-secondary)] transition hover:border-[var(--border-hover)] hover:text-white">
             <KeyRound className="h-4 w-4" />
@@ -312,6 +342,9 @@ function DashboardWorkspace({ setup }: { setup: SetupOverview }) {
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden p-3 lg:p-5 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-5">
       <section className="panel relative overflow-hidden rounded-xl p-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,rgba(74,110,232,0.16),transparent_34%),radial-gradient(circle_at_12%_90%,rgba(239,99,152,0.11),transparent_30%)]" />
+        <motion.div className="pointer-events-none absolute right-[7%] top-[8%] h-64 w-64 opacity-[0.045]" animate={{ y: [0, -6, 0], rotate: [0, 1, 0] }} transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}>
+          <Image src="/brand/velvet-mark.png" alt="" fill sizes="256px" className="object-contain" />
+        </motion.div>
         <div className="relative max-w-3xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[rgba(239,99,152,0.26)] bg-[rgba(239,99,152,0.08)] px-3 py-1 text-xs text-[var(--rose-soft)]">
             <Sparkles className="h-3.5 w-3.5" />
@@ -339,7 +372,7 @@ function DashboardWorkspace({ setup }: { setup: SetupOverview }) {
         </div>
         <div className="relative mt-6 grid grid-cols-3 gap-3">
           {setupSteps.map((step, index) => (
-            <Link key={step.title} href={step.href} className="rounded-xl border border-[var(--border)] bg-black/20 p-4 hover:border-[var(--border-hover)]">
+            <Link key={step.title} href={step.href} className="rounded-lg bg-black/15 p-4 ring-1 ring-inset ring-[var(--border)] transition hover:-translate-y-0.5 hover:bg-white/[0.035] hover:ring-[var(--border-hover)]">
               <div className="tabular text-xs text-[var(--rose-soft)]">0{index + 1}</div>
               <h2 className="mt-3 text-sm font-semibold">{step.title}</h2>
               <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{step.body}</p>
@@ -380,11 +413,19 @@ function ProjectsWorkspace() {
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">
             {projects.slice(0, 6).map((project) => (
-              <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4 hover:border-[var(--border-hover)]">
-                <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.mediaType ?? "album"} / {project.status}</div>
-                <h2 className="mt-3 line-clamp-2 font-serif text-[28px] leading-none">{project.title}</h2>
-                <p className="mt-3 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{project.brief}</p>
-              </Link>
+              <motion.div key={project.id} whileHover={{ y: -3 }} transition={{ duration: 0.18 }}>
+                <Link href={`/projects/${project.id}`} className="group grid grid-cols-[92px_minmax(0,1fr)] gap-3 rounded-lg bg-white/[0.028] p-3 ring-1 ring-inset ring-[var(--border)] transition hover:bg-white/[0.045] hover:ring-[var(--border-hover)]">
+                  <ProjectArtwork title={project.title} compact />
+                  <div className="min-w-0 py-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--rose-soft)]">{project.mediaType ?? "album"}</span>
+                      <StatusPill status={project.status} />
+                    </div>
+                    <h2 className="mt-2 line-clamp-2 text-base font-semibold leading-5 text-white">{project.title}</h2>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{project.brief}</p>
+                  </div>
+                </Link>
+              </motion.div>
             ))}
           </div>
         </section>
@@ -395,10 +436,10 @@ function ProjectsWorkspace() {
   return (
     <div className="min-h-0 flex-1 p-5">
       <section className="panel flex h-full flex-col items-center justify-center rounded-xl p-8 text-center">
-        <div className="grid h-20 w-20 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
-          <UploadCloud className="h-8 w-8 text-[var(--rose-soft)]" />
+        <div className="w-24 shadow-[0_18px_50px_rgba(0,0,0,0.3)]">
+          <ProjectArtwork title="Your first Velvet release" compact />
         </div>
-        <h1 className="mt-5 font-serif text-[44px] leading-none">No projects yet</h1>
+        <h1 className="mt-5 text-[30px] font-semibold leading-none">No projects yet</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
           Your songs and albums will live here after you create the first blueprint.
         </p>
@@ -418,7 +459,11 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   const [message, setMessage] = useState("Review the blueprint before running paid generation.");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<"release" | "jobs" | "usage">("release");
+  const [saveState, setSaveState] = useState("Saved");
+  const [editRevision, setEditRevision] = useState(0);
   const [privacy, setPrivacy] = useState<"private" | "unlisted" | "public">("private");
+  const { activeTrack, loadTrack, togglePlaying } = usePlayerStore();
   const [editForm, setEditForm] = useState({
     title: "",
     concept: "",
@@ -452,6 +497,30 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
     loadProject().catch(() => setMessage("Project could not be loaded."));
   }, [loadProject]);
 
+  useEffect(() => {
+    if (!isEditing || editRevision === 0) return;
+    setSaveState("Saving");
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/projects/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editForm)
+        });
+        setSaveState(response.ok ? "Saved" : "Needs attention");
+      } catch {
+        setSaveState("Needs attention");
+      }
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [editForm, editRevision, id, isEditing]);
+
+  function updateProjectEdit(field: keyof typeof editForm, value: string) {
+    setEditForm((current) => ({ ...current, [field]: value }));
+    setSaveState("Unsaved");
+    setEditRevision((current) => current + 1);
+  }
+
   async function runAction(action: "approve" | "music" | "render" | "upload") {
     setBusyAction(action);
     setMessage(`${actionLabel(action)}...`);
@@ -480,6 +549,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
 
   async function saveProjectEdits() {
     setBusyAction("save");
+    setSaveState("Saving");
     setMessage("Saving project edits...");
 
     try {
@@ -495,9 +565,11 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
       }
 
       setIsEditing(false);
+      setSaveState("Saved");
       setMessage("Project edits saved.");
       await loadProject();
     } catch (error) {
+      setSaveState("Needs attention");
       setMessage(error instanceof Error ? error.message : "Project edits could not be saved.");
     } finally {
       setBusyAction(null);
@@ -515,101 +587,128 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden p-3 lg:p-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-5">
-      <section className="panel min-h-0 overflow-hidden rounded-xl p-5">
+    <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 lg:p-4 xl:grid-cols-[236px_minmax(0,1fr)_300px]">
+      <aside className="panel hidden min-h-0 rounded-xl p-3 xl:block">
+        <ProjectArtwork title={project.title} />
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.mediaType ?? "album"}</span>
+          <StatusPill status={project.status} />
+        </div>
+        <h1 className="mt-3 line-clamp-2 text-xl font-semibold leading-6 text-white">{project.title}</h1>
+        <p className="mt-3 line-clamp-4 text-xs leading-5 text-[var(--text-secondary)]">{project.blueprint?.concept ?? project.brief}</p>
+        <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-[var(--border)]">
+          <StudioMetric label="Tracks" value={String(project.blueprint?.tracks.length ?? 0)} />
+          <StudioMetric label="Length" value={formatDuration((project.blueprint?.tracks ?? []).reduce((total, track) => total + track.durationSeconds, 0))} />
+        </div>
+      </aside>
+
+      <section className="panel min-h-0 overflow-hidden rounded-xl p-4">
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-[0.16em] text-[var(--rose-soft)]">{project.status}</div>
-            <h1 className="mt-2 line-clamp-2 font-serif text-[44px] leading-none">{project.title}</h1>
-            <p className="mt-3 line-clamp-2 text-sm leading-6 text-[var(--text-secondary)]">{project.blueprint?.concept ?? project.brief}</p>
+            <SectionTitle label="Production" icon={<ListMusic className="h-4 w-4" />} />
+            <div className="mt-2 xl:hidden"><StatusPill status={project.status} /></div>
+            <h1 className="mt-2 line-clamp-1 text-2xl font-semibold leading-none xl:hidden">{project.title}</h1>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <WorkflowButton label={isEditing ? "Done" : "Edit"} active={busyAction === "save"} onClick={() => (isEditing ? saveProjectEdits() : setIsEditing(true))} disabled={!project.blueprint} />
-            <WorkflowButton label="Approve" active={busyAction === "approve"} onClick={() => runAction("approve")} disabled={project.status !== "blueprint"} />
-            <WorkflowButton label="Generate" active={busyAction === "music"} onClick={() => runAction("music")} disabled={!["approved", "generating"].includes(project.status)} />
-            <WorkflowButton label="Render" active={busyAction === "render"} onClick={() => runAction("render")} disabled={!project.generatedTracks?.length} />
-            <WorkflowButton label="Upload" active={busyAction === "upload"} onClick={() => runAction("upload")} disabled={!project.render?.videoPath} />
+          <div className="flex shrink-0 items-center gap-2">
+            <Save className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+            <span className="text-[11px] text-[var(--text-muted)]">{saveState}</span>
           </div>
         </div>
 
-        <div className="mt-3 rounded-lg border border-[var(--border)] bg-black/15 px-3 py-2 text-xs text-[var(--text-secondary)]">{message}</div>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <WorkflowButton icon={<Check className="h-4 w-4" />} label="Approve" active={busyAction === "approve"} onClick={() => runAction("approve")} disabled={project.status !== "blueprint"} />
+          <WorkflowButton icon={<WandSparkles className="h-4 w-4" />} label="Generate" active={busyAction === "music"} onClick={() => runAction("music")} disabled={!["approved", "generating"].includes(project.status)} />
+          <WorkflowButton icon={<Clapperboard className="h-4 w-4" />} label="Render" active={busyAction === "render"} onClick={() => runAction("render")} disabled={!project.generatedTracks?.length} />
+          <WorkflowButton icon={<Upload className="h-4 w-4" />} label="Upload" active={busyAction === "upload"} onClick={() => runAction("upload")} disabled={!project.render?.videoPath} />
+        </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] gap-4">
-          <div className="space-y-3">
-            <SectionTitle label="Track Prompts" />
-            <div className="grid max-h-[410px] gap-2 overflow-hidden">
-              {(project.blueprint?.tracks ?? []).slice(0, 6).map((track, index) => (
-                <article key={track.title} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="truncate text-sm font-medium">
-                      {String(index + 1).padStart(2, "0")} {track.title}
-                    </h2>
-                    <span className="text-xs text-[var(--text-muted)]">{formatDuration(track.durationSeconds)}</span>
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">{track.prompt}</p>
-                </article>
-              ))}
-            </div>
+        <div className="mt-3 overflow-hidden rounded-lg bg-black/15 ring-1 ring-inset ring-[var(--border)]">
+          <div className="flex items-center justify-between gap-3 px-3 py-2 text-xs text-[var(--text-secondary)]">
+            <span className="truncate">{message}</span>
+            <span className="tabular text-[var(--text-muted)]">{workflowProgress(project.status)}%</span>
           </div>
+          <motion.div className="h-0.5 bg-[linear-gradient(90deg,var(--cyan),var(--violet),var(--rose))]" initial={false} animate={{ width: `${workflowProgress(project.status)}%` }} transition={{ type: "spring", stiffness: 120, damping: 22 }} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4">
           <div className="space-y-3">
-            <SectionTitle label="Release Package" />
-            {isEditing ? (
-              <div className="space-y-2">
-                <EditField label="Title" value={editForm.title} onChange={(value) => setEditForm((current) => ({ ...current, title: value }))} />
-                <EditArea label="Concept" value={editForm.concept} onChange={(value) => setEditForm((current) => ({ ...current, concept: value }))} />
-                <EditArea label="Cover prompt" value={editForm.coverPrompt} onChange={(value) => setEditForm((current) => ({ ...current, coverPrompt: value }))} />
-                <EditArea label="Video prompt" value={editForm.videoPrompt} onChange={(value) => setEditForm((current) => ({ ...current, videoPrompt: value }))} />
-                <EditField label="YouTube title" value={editForm.youtubeTitle} onChange={(value) => setEditForm((current) => ({ ...current, youtubeTitle: value }))} />
-                <EditArea label="YouTube description" value={editForm.youtubeDescription} onChange={(value) => setEditForm((current) => ({ ...current, youtubeDescription: value }))} />
-                <EditField label="Tags" value={editForm.youtubeTags} onChange={(value) => setEditForm((current) => ({ ...current, youtubeTags: value }))} />
-              </div>
-            ) : (
-              <>
-                <InfoTile label="Cover prompt" value={project.blueprint?.coverPrompt ?? "Waiting for blueprint"} />
-                <InfoTile label="Video prompt" value={project.blueprint?.videoPrompt ?? "Waiting for blueprint"} />
-                <InfoTile label="YouTube title" value={project.blueprint?.youtube.title ?? "Waiting for blueprint"} />
-              </>
-            )}
-            <InfoTile label="Render" value={project.render?.message ?? "Not rendered yet"} />
+            <div className="flex items-center justify-between"><SectionTitle label="Tracks & Prompts" icon={<Music2 className="h-4 w-4" />} /><span className="text-[11px] text-[var(--text-muted)]">{project.generatedTracks?.length ?? 0} generated</span></div>
+            <div className="grid max-h-[410px] gap-2 overflow-hidden">
+              {(project.blueprint?.tracks ?? []).slice(0, 6).map((track, index) => {
+                const generated = project.generatedTracks?.[index];
+                const isCurrent = activeTrack?.title === track.title && activeTrack.projectTitle === project.title;
+                return (
+                  <motion.article key={track.title} layout className={`grid grid-cols-[36px_30px_minmax(0,1fr)_54px] items-center gap-2 rounded-lg px-2 py-2 ring-1 ring-inset transition ${isCurrent ? "bg-[rgba(239,99,152,0.085)] ring-[rgba(239,99,152,0.24)]" : "bg-white/[0.025] ring-[var(--border)] hover:bg-white/[0.04]"}`}>
+                    <button aria-label={generated ? `Play ${track.title}` : `${track.title} is not generated yet`} title={generated ? `Play ${track.title}` : "Generate this track before playback"} disabled={!generated} onClick={() => { if (!isCurrent) loadTrack({ title: track.title, projectTitle: project.title, durationSeconds: track.durationSeconds, artworkTitle: project.title }); togglePlaying(); }} className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.045] text-[var(--text-secondary)] hover:bg-[rgba(239,99,152,0.14)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                    </button>
+                    <span className="tabular text-xs text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>
+                    <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-sm font-medium text-white">{track.title}</h2><span className="hidden rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[var(--text-muted)] 2xl:inline">{track.mood}</span></div><p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{track.prompt}</p></div>
+                    <span className="tabular text-right text-xs text-[var(--text-muted)]">{formatDuration(track.durationSeconds)}</span>
+                  </motion.article>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
 
-      <aside className="hidden space-y-3 overflow-hidden xl:block">
-        <aside className="panel rounded-xl p-4">
+      <aside className="panel hidden min-h-0 overflow-hidden rounded-xl p-3 xl:block">
+        <div className="flex items-center justify-between gap-3">
+          <SectionTitle label="Inspector" icon={<PanelRight className="h-4 w-4" />} />
+          <button onClick={() => (isEditing ? saveProjectEdits() : setIsEditing(true))} disabled={!project.blueprint || busyAction === "save"} className="h-8 rounded-lg bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)] hover:bg-white/[0.08] hover:text-white disabled:opacity-40">{isEditing ? "Done" : "Edit"}</button>
+        </div>
+        <div className="mt-3 grid h-9 grid-cols-3 rounded-lg bg-black/20 p-1">
+          {(["release", "jobs", "usage"] as const).map((tab) => (
+            <button key={tab} onClick={() => setInspectorTab(tab)} className={`rounded-md text-[11px] font-medium capitalize ${inspectorTab === tab ? "bg-white/[0.08] text-white" : "text-[var(--text-muted)] hover:text-white"}`}>{tab}</button>
+          ))}
+        </div>
+
+        {inspectorTab === "release" ? (
+          <div className="mt-3 space-y-2 overflow-hidden">
+            {isEditing ? (
+              <>
+                <EditField label="Title" value={editForm.title} onChange={(value) => updateProjectEdit("title", value)} />
+                <EditArea label="Concept" value={editForm.concept} onChange={(value) => updateProjectEdit("concept", value)} />
+                <EditArea label="Cover prompt" value={editForm.coverPrompt} onChange={(value) => updateProjectEdit("coverPrompt", value)} />
+                <EditArea label="Video prompt" value={editForm.videoPrompt} onChange={(value) => updateProjectEdit("videoPrompt", value)} />
+                <EditField label="YouTube title" value={editForm.youtubeTitle} onChange={(value) => updateProjectEdit("youtubeTitle", value)} />
+              </>
+            ) : (
+              <>
+                <InspectorField label="Cover direction" value={project.blueprint?.coverPrompt ?? "Waiting for blueprint"} />
+                <InspectorField label="Video direction" value={project.blueprint?.videoPrompt ?? "Waiting for blueprint"} />
+                <InspectorField label="YouTube title" value={project.blueprint?.youtube.title ?? "Waiting for blueprint"} />
+                <InspectorField label="Render" value={project.render?.message ?? "Not rendered yet"} />
+              </>
+            )}
+            <label className="block pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Upload privacy
+              <select value={privacy} onChange={(event) => setPrivacy(event.target.value as "private" | "unlisted" | "public")} className="mt-1.5 h-9 w-full rounded-lg bg-black/20 px-3 text-xs normal-case tracking-normal text-white ring-1 ring-inset ring-[var(--border)]">
+                <option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
+        <aside className={`${inspectorTab === "jobs" ? "block" : "hidden"} mt-3 rounded-lg p-1`}>
           <SectionTitle label="Job Queue" />
           <div className="mt-3 space-y-2">
             {(jobs.length ? jobs : [{ id: "empty", type: "ready", status: "idle", message: "No project jobs yet." }]).slice(0, 4).map((job) => (
-              <div key={job.id} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
-                <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.12em] text-[var(--rose-soft)]">
-                  <span>{job.type}</span>
-                  <span>{job.status}</span>
+              <div key={job.id} className="rounded-lg bg-white/[0.025] p-3 ring-1 ring-inset ring-[var(--border)]">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-medium text-white">{job.type}</span>
+                  <StatusPill status={job.status} />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{job.message}</p>
               </div>
             ))}
           </div>
         </aside>
-        <aside className="panel rounded-xl p-4">
-          <SectionTitle label="Upload" />
-          <label className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Privacy
-            <select
-              value={privacy}
-              onChange={(event) => setPrivacy(event.target.value as "private" | "unlisted" | "public")}
-              className="mt-1.5 h-9 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 text-xs normal-case tracking-normal text-white outline-none"
-            >
-              <option value="private">Private</option>
-              <option value="unlisted">Unlisted</option>
-              <option value="public">Public</option>
-            </select>
-          </label>
-        </aside>
-        <aside className="panel rounded-xl p-4">
+        <aside className={`${inspectorTab === "usage" ? "block" : "hidden"} mt-3 rounded-lg p-1`}>
           <SectionTitle label="Usage" />
           <div className="mt-3 space-y-2">
             {(usage.length ? usage : [{ id: "empty", provider: "ready", operation: "No usage recorded yet.", units: {} }]).slice(0, 3).map((item) => (
-              <div key={item.id} className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3 text-xs text-[var(--text-secondary)]">
+              <div key={item.id} className="rounded-lg bg-white/[0.025] p-3 text-xs text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="uppercase tracking-[0.12em] text-[var(--rose-soft)]">{item.provider}</div>
                   {item.costStatus ? <div className="text-[var(--text-muted)]">{formatCost(item)}</div> : null}
@@ -619,18 +718,19 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
             ))}
           </div>
         </aside>
-        <EmptyPanel title="Files" body={project.generatedTracks?.length ? `${project.generatedTracks.length} generated track file(s) stored locally.` : "Generated audio and render outputs appear in the local Velvet export folder."} />
       </aside>
     </div>
   );
 }
 
 function WorkflowButton({
+  icon,
   label,
   active,
   disabled,
   onClick
 }: {
+  icon?: React.ReactNode;
   label: string;
   active: boolean;
   disabled?: boolean;
@@ -640,20 +740,25 @@ function WorkflowButton({
     <button
       onClick={onClick}
       disabled={disabled || active}
-      className="h-9 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+      title={label}
+      className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-white/[0.045] px-2 text-xs text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border)] hover:bg-white/[0.075] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
     >
-      {active ? "Working..." : label}
+      {active ? <Activity className="h-4 w-4 animate-pulse" /> : icon}
+      <span className="hidden truncate 2xl:inline">{active ? "Working" : label}</span>
     </button>
   );
 }
 
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-[var(--border)] bg-white/[0.035] p-3">
-      <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{label}</div>
-      <p className="mt-2 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{value}</p>
-    </article>
-  );
+function StudioMetric({ label, value }: { label: string; value: string }) {
+  return <div className="bg-[#111426] px-3 py-2.5"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">{label}</div><div className="mt-1 tabular text-sm text-white">{value}</div></div>;
+}
+
+function InspectorField({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-lg bg-white/[0.025] p-3 ring-1 ring-inset ring-[var(--border)]"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--rose-soft)]">{label}</div><p className="mt-2 line-clamp-3 text-[11px] leading-4 text-[var(--text-secondary)]">{value}</p></div>;
+}
+
+function workflowProgress(status: string) {
+  return { draft: 8, blueprint: 24, approved: 42, generating: 58, generated: 70, rendering: 82, rendered: 90, uploading: 96, uploaded: 100 }[status.toLowerCase()] ?? 12;
 }
 
 function EditField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
@@ -762,10 +867,8 @@ function HistoryWorkspace() {
               </div>
             ) : (
               <div className="flex min-h-[250px] flex-col items-center justify-center px-6 py-8 text-center">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border)] bg-white/[0.04]">
-                  <History className="h-7 w-7 text-[var(--rose-soft)]" />
-                </div>
-                <h1 className="mt-4 font-serif text-[34px] leading-none">No uploads yet</h1>
+                <div className="w-20 shadow-[0_16px_40px_rgba(0,0,0,0.28)]"><ProjectArtwork title="Velvet archive" compact /></div>
+                <h1 className="mt-4 text-[28px] font-semibold leading-none">No uploads yet</h1>
                 <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
                   After a release is uploaded to YouTube, this log will show the upload record and open a complete prompt archive.
                 </p>
@@ -812,6 +915,7 @@ function HistoryWorkspace() {
 function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
   const [activeSetupStep, setActiveSetupStep] = useState<"services" | "youtube" | "review">("services");
+  const [activeService, setActiveService] = useState<"openai" | "elevenlabs">("openai");
   const [savedNotice, setSavedNotice] = useState(false);
   const [setupMessage, setSetupMessage] = useState("Keys are encrypted before being stored locally.");
   const [providerStatus, setProviderStatus] = useState<Record<string, ClientStatus>>({});
@@ -953,7 +1057,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
               {[
                 ["services", "01", "AI + Music"],
                 ["youtube", "02", "YouTube"],
-                ["review", "03", "Review"]
+                ["review", "03", "Advanced"]
               ].map(([key, number, label]) => (
                 <button
                   key={key}
@@ -972,7 +1076,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
 
           <div className="mt-3">
             {activeSetupStep === "services" ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-3">
+                <div className="grid h-10 grid-cols-2 rounded-lg bg-black/20 p-1">
+                  <button onClick={() => setActiveService("openai")} className={`rounded-md text-xs font-medium ${activeService === "openai" ? "bg-white/[0.08] text-white" : "text-[var(--text-muted)] hover:text-white"}`}>ChatGPT</button>
+                  <button onClick={() => setActiveService("elevenlabs")} className={`rounded-md text-xs font-medium ${activeService === "elevenlabs" ? "bg-white/[0.08] text-white" : "text-[var(--text-muted)] hover:text-white"}`}>ElevenLabs</button>
+                </div>
+                <motion.div key={activeService} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
+                {activeService === "openai" ? (
                 <SetupCard
                   icon={<KeyRound className="h-5 w-5" />}
                   title="ChatGPT / OpenAI"
@@ -995,7 +1105,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet chooses the planning and image models automatically.</p>
                   <StatusLine status={providerStatus.openai} />
                 </SetupCard>
-
+                ) : (
                 <SetupCard
                   icon={<Music2 className="h-5 w-5" />}
                   title="ElevenLabs"
@@ -1018,6 +1128,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet uses the default ElevenLabs music model and reads quota usage from the key.</p>
                   <StatusLine status={providerStatus.elevenlabs} />
                 </SetupCard>
+                )}
+                </motion.div>
               </div>
             ) : null}
 
@@ -1400,38 +1512,48 @@ function Field({
 }
 
 function BottomPlayer() {
-  const { isPlaying, positionSeconds, volume, togglePlaying, setVolume } = usePlayerStore();
+  const { activeTrack, isPlaying, positionSeconds, volume, togglePlaying, seek, setVolume } = usePlayerStore();
+
+  useEffect(() => {
+    if (!isPlaying || !activeTrack) return;
+    const timer = window.setInterval(() => {
+      const current = usePlayerStore.getState().positionSeconds;
+      if (current >= activeTrack.durationSeconds) {
+        usePlayerStore.setState({ positionSeconds: 0, isPlaying: false });
+      } else {
+        seek(Math.min(activeTrack.durationSeconds, current + 1));
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeTrack, isPlaying, seek]);
+
+  if (!activeTrack) return null;
+  const progress = activeTrack.durationSeconds ? positionSeconds / activeTrack.durationSeconds : 0;
+
   return (
-    <footer className="panel mt-4 hidden h-20 grid-cols-[310px_1fr_230px] items-center gap-6 rounded-xl px-5 lg:grid">
-      <div className="flex items-center gap-4">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-white/[0.035]">
-          <Play className="h-5 w-5 text-[var(--text-muted)]" />
-        </div>
+    <motion.footer className="panel mt-4 hidden h-20 grid-cols-[300px_150px_minmax(260px,1fr)_120px_190px] items-center gap-4 rounded-xl px-4 lg:grid" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24 }}>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="h-14 w-14 shrink-0"><ProjectArtwork title={activeTrack.artworkTitle} compact /></div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-[var(--text-secondary)]">Nothing playing</div>
-          <div className="mt-1 truncate text-xs text-[var(--text-muted)]">Create media to add tracks</div>
+          <div className="truncate text-sm font-medium text-white">{activeTrack.title}</div>
+          <div className="mt-1 truncate text-xs text-[var(--text-muted)]">{activeTrack.projectTitle}</div>
         </div>
       </div>
-      <div className="grid grid-cols-[140px_1fr_90px] items-center gap-5">
-        <div className="flex items-center justify-center">
-          <motion.button
-            whileTap={{ scale: 0.94 }}
-            aria-label={isPlaying ? "Pause" : "Play"}
-            onClick={togglePlaying}
-            className="grid h-11 w-11 place-items-center rounded-full border border-[var(--border)] bg-white/[0.04] text-[var(--text-muted)]"
-          >
-            {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
-          </motion.button>
-        </div>
-        <div className="flex h-12 items-center gap-1 opacity-35">
-          {Array.from({ length: 42 }).map((_, index) => (
-            <span key={index} className="h-3 w-0.5 rounded-full bg-[var(--text-muted)]" />
-          ))}
-        </div>
-        <div className="tabular text-sm text-[var(--text-muted)]">{formatDuration(positionSeconds)} / --:--</div>
+      <div className="flex items-center justify-center gap-2">
+        <button onClick={() => seek(0)} title="Previous track" aria-label="Previous track" className="grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white"><SkipBack className="h-4 w-4 fill-current" /></button>
+        <motion.button whileTap={{ scale: 0.92 }} aria-label={isPlaying ? "Pause" : "Play"} onClick={togglePlaying} className="grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,var(--violet),var(--rose))] text-white shadow-[0_10px_30px_rgba(239,99,152,0.18)]">
+          {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
+        </motion.button>
+        <button onClick={() => seek(activeTrack.durationSeconds)} title="Next track" aria-label="Next track" className="grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white"><SkipForward className="h-4 w-4 fill-current" /></button>
       </div>
+      <div className="relative min-w-0">
+        <Waveform isPlaying={isPlaying} progress={progress} />
+        <input aria-label="Track position" type="range" min={0} max={activeTrack.durationSeconds} value={Math.min(positionSeconds, activeTrack.durationSeconds)} onChange={(event) => seek(Number(event.target.value))} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+      </div>
+      <div className="tabular text-center text-xs text-[var(--text-muted)]">{formatDuration(positionSeconds)} / {formatDuration(activeTrack.durationSeconds)}</div>
       <div className="flex items-center gap-3 text-[var(--text-secondary)]">
-        <Volume2 className="h-5 w-5" />
+        <button title="Repeat" aria-label="Repeat" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white"><Repeat2 className="h-4 w-4" /></button>
+        <Volume2 className="h-4 w-4" />
         <input
           aria-label="Volume"
           type="range"
@@ -1439,18 +1561,18 @@ function BottomPlayer() {
           max={100}
           value={volume}
           onChange={(event) => setVolume(Number(event.target.value))}
-          className="h-1 w-28 accent-[var(--rose-soft)]"
+          className="h-1 min-w-0 flex-1 accent-[var(--rose-soft)]"
         />
       </div>
-    </footer>
+    </motion.footer>
   );
 }
 
-function SectionTitle({ label }: { label: string }) {
+function SectionTitle({ label, icon }: { label: string; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <Sparkles className="h-4 w-4 text-[var(--rose-soft)]" />
-      <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">{label}</h2>
+      {icon ? <span className="text-[var(--rose-soft)]">{icon}</span> : <span className="h-1.5 w-1.5 rounded-full bg-[var(--rose-soft)]" />}
+      <h2 className="text-xs font-semibold uppercase tracking-[0.13em] text-[var(--text-primary)]">{label}</h2>
     </div>
   );
 }
