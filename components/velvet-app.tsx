@@ -268,7 +268,7 @@ function FreshWorkspace({ pathname }: { pathname: string }) {
 
 function DashboardWorkspace() {
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_390px] gap-5 overflow-hidden p-5">
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_410px] gap-6 overflow-hidden p-5">
       <section className="panel relative overflow-hidden rounded-xl p-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_14%,rgba(74,110,232,0.2),transparent_32%),radial-gradient(circle_at_18%_86%,rgba(239,99,152,0.16),transparent_28%)]" />
         <div className="relative max-w-3xl">
@@ -309,10 +309,10 @@ function DashboardWorkspace() {
         </div>
       </section>
 
-      <aside className="grid min-h-0 content-start gap-5">
-        <EmptyPanel className="min-h-[148px]" title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
-        <EmptyPanel className="min-h-[128px]" title="Generation Queue" body="Queue is empty. Tracks appear here after a blueprint is approved." />
-        <EmptyPanel className="min-h-[148px]" title="Publishing" body="YouTube publishing is unavailable until a channel is connected." href="/settings/youtube" action="Connect YouTube" />
+      <aside className="grid min-h-0 content-start gap-7 py-1">
+        <EmptyPanel className="min-h-[132px]" title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
+        <EmptyPanel className="min-h-[116px]" title="Generation Queue" body="Tracks appear here after a blueprint is approved." />
+        <EmptyPanel className="min-h-[132px]" title="Publishing" body="Connect a channel before YouTube publishing." href="/settings/youtube" action="Connect YouTube" />
       </aside>
     </div>
   );
