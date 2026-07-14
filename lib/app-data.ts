@@ -9,7 +9,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "New Album", href: "/projects/new", icon: Sparkles },
+  { label: "New Media", href: "/projects/new", icon: Sparkles },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "History", href: "/history", icon: History },
   { label: "Settings", href: "/settings", icon: Settings }
@@ -18,7 +18,7 @@ export const navItems: NavItem[] = [
 export const setupSteps = [
   {
     title: "Connect ChatGPT",
-    body: "Add an OpenAI API key for album planning, artwork prompts, image generation and YouTube metadata.",
+    body: "Add an OpenAI API key for song and album planning, artwork prompts, image generation and YouTube metadata.",
     href: "/settings"
   },
   {
@@ -28,7 +28,7 @@ export const setupSteps = [
   },
   {
     title: "Connect YouTube",
-    body: "Login with YouTube so private review uploads are available when the album is ready.",
+    body: "Login with YouTube so private review uploads are available when media is ready.",
     href: "/settings"
   }
 ];

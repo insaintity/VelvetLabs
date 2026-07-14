@@ -83,6 +83,7 @@ type ClientProject = {
   id: string;
   title: string;
   brief: string;
+  mediaType?: "song" | "album";
   status: string;
   createdAt: string;
   blueprint?: {
@@ -198,7 +199,7 @@ function Sidebar({ pathname }: { pathname: string }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">New Studio</div>
-            <div className="text-xs text-[var(--text-muted)]">No albums yet</div>
+            <div className="text-xs text-[var(--text-muted)]">No media yet</div>
           </div>
           <ChevronDown className="h-4 w-4 text-[var(--text-secondary)]" />
         </div>
@@ -239,11 +240,11 @@ function TopBar({ pageTitle }: { pageTitle: string }) {
         </button>
         <Link
           href="/settings"
-          title="Complete setup before creating an album."
+          title="Complete setup before creating media."
           className="flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 text-sm text-[var(--text-muted)]"
         >
           <Lock className="h-4 w-4" />
-          Album Locked
+          Media Locked
         </Link>
       </div>
     </header>
@@ -280,9 +281,9 @@ function DashboardWorkspace() {
             <Sparkles className="h-3.5 w-3.5" />
             First launch
           </div>
-          <h1 className="font-serif text-[64px] leading-[0.95] text-white">Create your first AI music album.</h1>
+          <h1 className="font-serif text-[64px] leading-[0.95] text-white">Create your first AI music release.</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)]">
-            Start with a short album brief. Velvet will prepare a blueprint for review before any generation, rendering or upload work begins.
+            Start with a short song or album prompt. Velvet will prepare a blueprint for review before any generation, rendering or upload work begins.
           </p>
           <div className="mt-7 flex gap-3">
             <Link
@@ -294,11 +295,11 @@ function DashboardWorkspace() {
             </Link>
             <Link
               href="/settings"
-              title="Complete setup before creating an album."
+              title="Complete setup before creating media."
               className="flex h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-5 text-[var(--text-muted)]"
             >
               <Lock className="h-4 w-4" />
-              Create Album After Setup
+              Create Media After Setup
             </Link>
           </div>
         </div>
@@ -314,7 +315,7 @@ function DashboardWorkspace() {
       </section>
 
       <aside className="grid min-h-0 content-start gap-7 py-1">
-        <EmptyPanel className="min-h-[132px]" title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first album." action="Start setup" href="/settings" />
+        <EmptyPanel className="min-h-[132px]" title="Setup Required" body="Connect ChatGPT, ElevenLabs, and YouTube before creating the first release." action="Start setup" href="/settings" />
         <EmptyPanel className="min-h-[116px]" title="Generation Queue" body="Tracks appear here after a blueprint is approved." />
         <EmptyPanel className="min-h-[132px]" title="Publishing" body="Connect a channel before YouTube publishing." href="/settings/youtube" action="Connect YouTube" />
       </aside>
@@ -340,13 +341,13 @@ function ProjectsWorkspace() {
             <SectionTitle label="Projects" />
             <Link href="/projects/new" className="flex h-10 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-4 text-sm font-medium">
               <Plus className="h-4 w-4" />
-              New Album
+              New Media
             </Link>
           </div>
           <div className="mt-5 grid grid-cols-3 gap-3">
             {projects.slice(0, 6).map((project) => (
               <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-4 hover:border-[var(--border-hover)]">
-                <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.status}</div>
+                <div className="text-xs uppercase tracking-[0.14em] text-[var(--rose-soft)]">{project.mediaType ?? "album"} / {project.status}</div>
                 <h2 className="mt-3 line-clamp-2 font-serif text-[28px] leading-none">{project.title}</h2>
                 <p className="mt-3 line-clamp-3 text-xs leading-5 text-[var(--text-secondary)]">{project.brief}</p>
               </Link>
@@ -365,11 +366,11 @@ function ProjectsWorkspace() {
         </div>
         <h1 className="mt-5 font-serif text-[44px] leading-none">No projects yet</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
-          Your album projects will live here after you create the first blueprint.
+          Your songs and albums will live here after you create the first blueprint.
         </p>
         <Link href="/projects/new" className="mt-6 flex h-11 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">
           <Plus className="h-4 w-4" />
-          Create Album
+          Create Media
         </Link>
       </section>
     </div>
@@ -699,7 +700,7 @@ function HistoryWorkspace() {
         <section className="panel rounded-xl p-5">
           <SectionTitle label="Upload History" />
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-            Every uploaded album will be logged here with the exact prompts, render settings, privacy choice, YouTube link and upload result.
+            Every uploaded release will be logged here with the exact prompts, render settings, privacy choice, YouTube link and upload result.
           </p>
 
           <div className="mt-5 overflow-hidden rounded-xl border border-[var(--border)] bg-black/15">
@@ -732,10 +733,10 @@ function HistoryWorkspace() {
                 </div>
                 <h1 className="mt-4 font-serif text-[34px] leading-none">No uploads yet</h1>
                 <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
-                  After an album is uploaded to YouTube, this log will show the upload record and open a complete prompt archive for that release.
+                  After a release is uploaded to YouTube, this log will show the upload record and open a complete prompt archive.
                 </p>
                 <Link href="/projects/new" className="mt-5 flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.05] px-4 text-sm text-[var(--text-secondary)]">
-                  Create first album
+                  Create first release
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -934,7 +935,7 @@ function SettingsWorkspace() {
                 <SetupCard
                   icon={<KeyRound className="h-5 w-5" />}
                   title="ChatGPT / OpenAI"
-                  body="Used for album blueprints, prompt revisions, artwork prompts, image generation and YouTube metadata."
+                  body="Used for song and album blueprints, prompt revisions, artwork prompts, image generation and YouTube metadata."
                   status="Not checked"
                 >
                   <Field
@@ -943,7 +944,7 @@ function SettingsWorkspace() {
                     secret
                     value={setupForm.openaiApiKey}
                     onChange={(value) => updateSetupForm("openaiApiKey", value)}
-                    help="Used for album planning, prompt rewriting, artwork prompts, and metadata."
+                    help="Used for song and album planning, prompt rewriting, artwork prompts, and metadata."
                   />
                   <div className="flex gap-2">
                     <button onClick={() => validateProvider("openai")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
@@ -1163,6 +1164,7 @@ function YouTubeStatusNotice({ status }: { status: string }) {
 }
 
 function NewProjectFlow() {
+  const [mediaType, setMediaType] = useState<"song" | "album">("song");
   const [brief, setBrief] = useState("");
   const [message, setMessage] = useState("Blueprint generation uses your encrypted OpenAI key after setup.");
   const [isCreating, setIsCreating] = useState(false);
@@ -1175,7 +1177,7 @@ function NewProjectFlow() {
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brief })
+        body: JSON.stringify({ brief, mediaType })
       });
       const data = await response.json();
 
@@ -1196,17 +1198,38 @@ function NewProjectFlow() {
     <div className="min-h-0 flex-1 overflow-hidden p-5">
       <div className="mx-auto grid max-w-[1120px] grid-cols-[1fr_340px] gap-5">
         <section className="panel rounded-xl p-5">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rose-soft)]">New album</div>
-          <h1 className="mt-2 font-serif text-[48px] leading-none">Describe the album.</h1>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rose-soft)]">New media</div>
+          <h1 className="mt-2 font-serif text-[48px] leading-none">Describe the song or album.</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-            Keep it simple. Mood, instrumentation, length and intended YouTube style are enough to begin.
+            Choose the release type, then write the prompt. Mood, instrumentation, length and intended YouTube style are enough to begin.
           </p>
+          <div className="mt-5 grid h-12 grid-cols-2 rounded-xl border border-[var(--border)] bg-black/20 p-1">
+            {(["song", "album"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setMediaType(type)}
+                className={`rounded-lg text-sm font-medium capitalize transition ${
+                  mediaType === type
+                    ? "bg-[rgba(239,99,152,0.18)] text-white shadow-[inset_0_0_18px_rgba(239,99,152,0.12)]"
+                    : "text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-white"
+                }`}
+                aria-pressed={mediaType === type}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
           <textarea
             value={brief}
             onChange={(event) => setBrief(event.target.value)}
-            className="mt-5 min-h-[250px] w-full resize-none rounded-xl border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
-            placeholder="Example: A moody late-night jazz album with slow saxophone, intimate piano and brushed drums. Instrumental, cinematic, elegant, and made for a long-form YouTube release."
-            aria-label="Album brief"
+            className="mt-4 min-h-[204px] w-full resize-none rounded-xl border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
+            placeholder={
+              mediaType === "song"
+                ? "Example: A smoky late-night jazz single with slow saxophone, intimate piano, brushed drums, and a cinematic noir mood. Around four minutes."
+                : "Example: A moody late-night jazz album with slow saxophone, intimate piano and brushed drums. Instrumental, cinematic, elegant, and made for a long-form YouTube release."
+            }
+            aria-label="Media brief"
           />
           <div className="mt-5 flex items-center justify-between gap-4">
             <p className="text-xs leading-5 text-[var(--text-muted)]">{message}</p>
@@ -1221,7 +1244,8 @@ function NewProjectFlow() {
           </div>
         </section>
         <aside className="space-y-4">
-          <EmptyPanel title="Optional" body="After the brief, Velvet can ask for length, track count, vocals and workflow mode only if needed." />
+          <EmptyPanel title="Release type" body="Songs create one-track blueprints. Albums create a multi-track plan with YouTube-ready metadata." />
+          <EmptyPanel title="Optional" body="After the prompt, Velvet can ask for length, track count, vocals and workflow mode only if needed." />
           <EmptyPanel title="Before generation" body="You will review the blueprint first. ChatGPT and ElevenLabs calls stay blocked until approved." />
         </aside>
       </div>
@@ -1343,7 +1367,7 @@ function BottomPlayer() {
         </div>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-[var(--text-secondary)]">Nothing playing</div>
-          <div className="mt-1 truncate text-xs text-[var(--text-muted)]">Create an album to add tracks</div>
+          <div className="mt-1 truncate text-xs text-[var(--text-muted)]">Create media to add tracks</div>
         </div>
       </div>
       <div className="grid grid-cols-[140px_1fr_90px] items-center gap-5">
@@ -1391,7 +1415,7 @@ function SectionTitle({ label }: { label: string }) {
 
 function getPageTitle(pathname: string) {
   if (pathname === "/projects/new") {
-    return "New Album";
+    return "New Media";
   }
   if (pathname === "/projects") {
     return "Projects";

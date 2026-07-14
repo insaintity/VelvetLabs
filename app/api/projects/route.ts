@@ -4,7 +4,7 @@ import { addJob, addPrompt, addUsage, readDatabase, updateJob, writeDatabase } f
 import { generateAlbumBlueprint } from "@/lib/server/providers/openai";
 import { requireSameOrigin } from "@/lib/server/security";
 import { readSecret } from "@/lib/server/secrets";
-import type { ProjectRecord } from "@/lib/server/types";
+import type { MediaType, ProjectRecord } from "@/lib/server/types";
 
 export async function GET() {
   const database = await readDatabase();
@@ -15,35 +15,39 @@ export async function POST(request: Request) {
   const blocked = requireSameOrigin(request);
   if (blocked) return blocked;
 
-  const { brief } = await request.json();
+  const { brief, mediaType: requestedMediaType } = await request.json();
+  const mediaType: MediaType = requestedMediaType === "song" ? "song" : "album";
+  const releaseLabel = mediaType === "song" ? "song" : "album";
 
   if (!brief || typeof brief !== "string" || brief.trim().length < 12) {
-    return NextResponse.json({ error: "Add a fuller album brief first." }, { status: 400 });
+    return NextResponse.json({ error: `Add a fuller ${releaseLabel} brief first.` }, { status: 400 });
   }
 
   const openaiKey = await readSecret("openai");
   if (!openaiKey) {
-    return NextResponse.json({ error: "OpenAI setup is required before creating an album blueprint." }, { status: 409 });
+    return NextResponse.json({ error: `OpenAI setup is required before creating a ${releaseLabel} blueprint.` }, { status: 409 });
   }
 
   const database = await readDatabase();
   const job = await addJob({
     type: "blueprint",
     status: "running",
-    message: "Generating album blueprint."
+    message: `Generating ${releaseLabel} blueprint.`
   });
 
   try {
     const { blueprint, raw, usage } = await generateAlbumBlueprint({
       apiKey: openaiKey,
       model: database.setup.openai?.planningModel || "gpt-4.1",
-      brief: brief.trim()
+      brief: brief.trim(),
+      mediaType
     });
     const now = new Date().toISOString();
     const project: ProjectRecord = {
       id: randomUUID(),
       title: blueprint.title,
       brief: brief.trim(),
+      mediaType,
       status: "blueprint",
       blueprint,
       createdAt: now,
@@ -52,9 +56,10 @@ export async function POST(request: Request) {
     const latest = await readDatabase();
     latest.projects.unshift(project);
     await writeDatabase(latest);
-    await addPrompt({ projectId: project.id, kind: "album-blueprint", prompt: brief.trim(), response: raw });
+    const operation = `${mediaType}-blueprint`;
+    await addPrompt({ projectId: project.id, kind: operation, prompt: brief.trim(), response: raw });
     if (usage) {
-      await addUsage({ provider: "openai", projectId: project.id, operation: "album-blueprint", units: usage });
+      await addUsage({ provider: "openai", projectId: project.id, operation, units: usage });
     }
     await updateJob(job.id, { status: "completed", message: "Blueprint created.", projectId: project.id, result: { projectId: project.id } });
     return NextResponse.json({ project });

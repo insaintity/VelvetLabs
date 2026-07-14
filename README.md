@@ -1,12 +1,12 @@
 # Velvet
 
-Velvet is an AI album foundry for creating complete jazz albums and preparing them for YouTube release.
+Velvet is an AI music foundry for creating individual songs or complete albums and preparing them for YouTube release.
 
 The app opens like a brand-new workspace and guides the user through setup before any generation workflow begins. Provider keys and OAuth tokens are encrypted locally, and the first working backend paths are in place for setup, blueprint generation, prompt history, jobs, rendering manifests, and YouTube upload.
 
 ## What It Does
 
-- Collects a natural-language album brief.
+- Collects a natural-language prompt for a song or album.
 - Onboards the required services: ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker settings.
 - Encrypts provider secrets before local storage.
 - Validates OpenAI and ElevenLabs keys.
@@ -14,7 +14,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Initializes `velvet_*` tables in a user-provided Supabase/Postgres database and syncs local records into them.
 - Includes a Supabase CLI migration for the Velvet schema.
 - Supports opt-in hosted database mirroring with `VELVET_DATABASE_MODE=postgres`.
-- Generates album blueprints with OpenAI once setup is complete.
+- Generates song and album blueprints with OpenAI once setup is complete.
 - Provides a project review screen for approving blueprints before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.
 - Stores projects, prompt versions, jobs, and upload records in a local project database.
@@ -72,7 +72,7 @@ Railway is the recommended low-cost production target. The repo includes `railwa
 ## Available Routes
 
 - `/dashboard` - first-launch studio overview
-- `/projects/new` - album brief entry
+- `/projects/new` - New Media prompt entry for songs or albums
 - `/projects` - empty project library
 - `/history` - upload history and prompt archive
 - `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube login, storage, and worker setup
@@ -81,7 +81,7 @@ Railway is the recommended low-cost production target. The repo includes `railwa
 
 Velvet is focused on:
 
-- ChatGPT/OpenAI for album planning, prompt refinement, artwork prompts, image generation, and YouTube metadata
+- ChatGPT/OpenAI for song and album planning, prompt refinement, artwork prompts, image generation, and YouTube metadata
 - ElevenLabs for music generation
 - YouTube login via Google OAuth for private uploads, thumbnails, metadata, and publishing workflows
 
@@ -89,7 +89,7 @@ The setup UI saves keys through server routes. Secrets are encrypted with AES-GC
 
 ## Upload History
 
-The History page is designed to log every uploaded album with:
+The History page is designed to log every uploaded release with:
 
 - YouTube video ID and URL
 - Privacy state
@@ -97,10 +97,10 @@ The History page is designed to log every uploaded album with:
 - Render manifest
 - Provider usage
 - Error and retry log
-- Album brief
-- Album blueprint prompt
+- Song or album prompt
+- Song or album blueprint prompt
 - Track music prompts
-- Album cover prompt
+- Cover prompt
 - YouTube thumbnail prompt
 - Video background prompt
 - YouTube metadata prompt
@@ -150,7 +150,7 @@ Important variables include:
 
 - The local `.velvet/` database is intended for development and single-user desktop use.
 - Long-running music, render, and upload work is queued for the worker process. Production should run the worker as a managed service/container.
-- The render endpoint creates a render manifest and renders a full-album MP4 when FFmpeg is available.
+- The render endpoint creates a render manifest and renders a release MP4 when FFmpeg is available.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
 - User-provided Supabase/Postgres connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.

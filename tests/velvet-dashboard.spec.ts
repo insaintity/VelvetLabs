@@ -56,10 +56,10 @@ test.describe("Velvet dashboard", () => {
     await page.goto("/dashboard");
 
     await expect(page.getByRole("link", { name: "velvet AI music foundry" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Create your first AI music album." })).toBeVisible();
-    await expect(page.getByText("Connect ChatGPT, ElevenLabs, and YouTube before creating the first album.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your first AI music release." })).toBeVisible();
+    await expect(page.getByText("Connect ChatGPT, ElevenLabs, and YouTube before creating the first release.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start Setup" }).first()).toHaveAttribute("href", "/settings");
-    await expect(page.getByRole("link", { name: "Create Album After Setup" })).toHaveAttribute("href", "/settings");
+    await expect(page.getByRole("link", { name: "Create Media After Setup" })).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("button", { name: /Play|Pause/ })).toBeVisible();
 
     const screenshot = await page.screenshot({ fullPage: true });
@@ -72,10 +72,12 @@ test.describe("Velvet dashboard", () => {
   test("renders the guided new-project flow", async ({ page }) => {
     await page.goto("/projects/new");
 
-    await expect(page.getByRole("heading", { name: "Describe the album." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Describe the song or album." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Song" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Album" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create Blueprint" })).toBeVisible();
     await expect(page.getByText("ChatGPT and ElevenLabs calls stay blocked until approved.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Album" })).toHaveClass(/border-\[var\(--border-active\)\]/);
+    await expect(page.getByRole("link", { name: "New Media" })).toHaveClass(/border-\[var\(--border-active\)\]/);
     await expect(page.getByRole("link", { name: "Projects" })).not.toHaveClass(/border-\[var\(--border-active\)\]/);
   });
 

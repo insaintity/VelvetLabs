@@ -1,4 +1,4 @@
-import type { AlbumBlueprint } from "../types";
+import type { AlbumBlueprint, MediaType } from "../types";
 
 const openaiBaseUrl = "https://api.openai.com/v1";
 
@@ -17,12 +17,20 @@ export async function validateOpenAIKey(apiKey: string) {
 export async function generateAlbumBlueprint({
   apiKey,
   model,
-  brief
+  brief,
+  mediaType = "album"
 }: {
   apiKey: string;
   model: string;
   brief: string;
+  mediaType?: MediaType;
 }): Promise<{ blueprint: AlbumBlueprint; raw: string; usage?: Record<string, number> }> {
+  const isSong = mediaType === "song";
+  const blueprintKind = isSong ? "single-song release" : "album";
+  const trackPrompt = isSong
+    ? `Create a single-track AI music blueprint from this brief. Return exactly one track:\n\n${brief}`
+    : `Create a 6-track AI music album blueprint from this brief:\n\n${brief}`;
+
   const response = await fetch(`${openaiBaseUrl}/responses`, {
     method: "POST",
     headers: {
@@ -35,11 +43,11 @@ export async function generateAlbumBlueprint({
         {
           role: "system",
           content:
-            "You are Velvet, an expert AI music director. Create concise, commercially useful jazz album blueprints. Return only valid JSON."
+            `You are Velvet, an expert AI music director. Create concise, commercially useful ${blueprintKind} blueprints. Return only valid JSON.`
         },
         {
           role: "user",
-          content: `Create a 6-track AI jazz album blueprint from this brief:\n\n${brief}`
+          content: trackPrompt
         }
       ],
       text: {
@@ -56,8 +64,8 @@ export async function generateAlbumBlueprint({
               targetLengthMinutes: { type: "number" },
               tracks: {
                 type: "array",
-                minItems: 4,
-                maxItems: 10,
+                minItems: isSong ? 1 : 4,
+                maxItems: isSong ? 1 : 10,
                 items: {
                   type: "object",
                   additionalProperties: false,

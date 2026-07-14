@@ -62,10 +62,13 @@ export type AlbumBlueprint = {
   };
 };
 
+export type MediaType = "song" | "album";
+
 export type ProjectRecord = {
   id: string;
   title: string;
   brief: string;
+  mediaType?: MediaType;
   status: "blueprint" | "approved" | "generating" | "rendered" | "uploaded" | "failed";
   blueprint?: AlbumBlueprint;
   approvedAt?: string;
