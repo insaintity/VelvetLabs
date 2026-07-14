@@ -153,7 +153,13 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Render" })).toBeVisible();
     await page.getByRole("button", { name: "Edit" }).click();
     await expect(page.getByLabel("YouTube title")).toBeVisible();
-    await expect(page.getByLabel("Privacy")).toBeVisible();
+    const privacyMenu = page.getByRole("button", { name: "Privacy" });
+    await expect(privacyMenu).toBeVisible();
+    await privacyMenu.click();
+    const privacyOptions = page.getByRole("listbox", { name: "Upload privacy options" });
+    await expect(privacyOptions).toBeVisible();
+    await privacyOptions.getByRole("option", { name: /Unlisted/ }).click();
+    await expect(privacyMenu).toContainText("Unlisted");
     await page.getByRole("button", { name: "Usage" }).click();
     await expect(page.getByText("No usage recorded yet.")).toBeVisible();
   });

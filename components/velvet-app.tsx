@@ -5,14 +5,17 @@ import {
   Activity,
   ArrowRight,
   Check,
+  ChevronDown,
   Clapperboard,
   Database,
   Download,
   FileText,
   Focus,
+  Globe2,
   HelpCircle,
   ImageIcon,
   KeyRound,
+  Link2,
   Lock,
   ListMusic,
   ListRestart,
@@ -34,7 +37,7 @@ import {
   WandSparkles,
   Youtube
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -750,11 +753,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
                 <InspectorField label="Render" value={project.render?.message ?? "Not rendered yet"} />
               </>
             )}
-            <label className="block pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Upload privacy
-              <select value={privacy} onChange={(event) => setPrivacy(event.target.value as "private" | "unlisted" | "public")} className="mt-1.5 h-9 w-full rounded-lg bg-black/20 px-3 text-xs normal-case tracking-normal text-white ring-1 ring-inset ring-[var(--border)]">
-                <option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option>
-              </select>
-            </label>
+            <PrivacyMenu value={privacy} onChange={setPrivacy} />
             <div className="grid grid-cols-3 gap-2 pt-1"><ReferenceUploader projectId={id} onUploaded={loadProject} /><button onClick={() => setCreativeOpen(true)} title="Title and thumbnail variants" aria-label="Title and thumbnail variants" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ImageIcon className="h-3.5 w-3.5" />Variants</button><a href={`/api/projects/${id}/archive`} title="Download project archive" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><Download className="h-3.5 w-3.5" />Archive</a></div>
             <button onClick={duplicateProject} className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/[.04] text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ListRestart className="h-3.5 w-3.5" />Duplicate project</button>
           </div>
@@ -829,6 +828,63 @@ function StudioMetric({ label, value }: { label: string; value: string }) {
 
 function InspectorField({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg bg-white/[0.025] p-3 ring-1 ring-inset ring-[var(--border)]"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--rose-soft)]">{label}</div><p className="mt-2 line-clamp-3 text-[11px] leading-4 text-[var(--text-secondary)]">{value}</p></div>;
+}
+
+const privacyOptions = [
+  { value: "private" as const, label: "Private", detail: "Only you", icon: Lock },
+  { value: "unlisted" as const, label: "Unlisted", detail: "Anyone with the link", icon: Link2 },
+  { value: "public" as const, label: "Public", detail: "Visible to everyone", icon: Globe2 }
+];
+
+function PrivacyMenu({ value, onChange }: { value: "private" | "unlisted" | "public"; onChange: (value: "private" | "unlisted" | "public") => void }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const selected = privacyOptions.find((option) => option.value === value) ?? privacyOptions[0];
+  const SelectedIcon = selected.icon;
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative pt-1">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Upload privacy</div>
+      <button type="button" aria-label="Privacy" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-lg bg-black/20 px-3 text-left ring-1 ring-inset transition ${open ? "ring-[var(--border-active)]" : "ring-[var(--border)] hover:ring-[var(--border-hover)]"}`}>
+        <SelectedIcon className="h-3.5 w-3.5 shrink-0 text-[var(--rose-soft)]" />
+        <span className="min-w-0 flex-1"><span className="block text-xs font-medium text-white">{selected.label}</span><span className="mt-0.5 block truncate text-[9px] text-[var(--text-muted)]">{selected.detail}</span></span>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.16 }}><ChevronDown className="h-3.5 w-3.5 text-[var(--text-muted)]" /></motion.span>
+      </button>
+      <AnimatePresence>
+        {open ? (
+          <motion.div role="listbox" aria-label="Upload privacy options" initial={{ opacity: 0, y: 5, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.99 }} transition={{ duration: 0.15, ease: "easeOut" }} className="panel absolute inset-x-0 bottom-full z-40 mb-1 overflow-hidden rounded-lg bg-[#111426] p-1 shadow-[0_18px_50px_rgba(0,0,0,.45)]">
+            {privacyOptions.map((option) => {
+              const OptionIcon = option.icon;
+              const active = option.value === value;
+              return (
+                <button key={option.value} role="option" aria-selected={active} onClick={() => { onChange(option.value); setOpen(false); }} className={`flex h-11 w-full items-center gap-3 rounded-md px-2.5 text-left ${active ? "bg-[rgba(239,99,152,.12)] text-white" : "text-[var(--text-secondary)] hover:bg-white/[.055] hover:text-white"}`}>
+                  <OptionIcon className={`h-3.5 w-3.5 shrink-0 ${active ? "text-[var(--rose-soft)]" : "text-[var(--text-muted)]"}`} />
+                  <span className="min-w-0 flex-1"><span className="block text-xs font-medium">{option.label}</span><span className="mt-0.5 block text-[9px] text-[var(--text-muted)]">{option.detail}</span></span>
+                  {active ? <Check className="h-3.5 w-3.5 text-[var(--success)]" /> : null}
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function workflowProgress(status: string) {
