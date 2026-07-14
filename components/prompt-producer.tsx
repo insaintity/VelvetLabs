@@ -34,7 +34,7 @@ const sharedQuestions: Question[] = [
   {
     id: "instruments",
     eyebrow: "Palette",
-    question: "Which instruments belong in the foreground?",
+    question: "Which sounds should lead?",
     placeholder: "Add instruments, textures, or sounds...",
     multiple: true,
     options: ["Piano", "Guitar", "Synths", "Strings", "Saxophone", "Bass", "Live drums", "Drum machine"]
@@ -47,38 +47,12 @@ const sharedQuestions: Question[] = [
     options: ["Instrumental", "Lead vocal", "Duet", "Choir", "Spoken word", "Vocal textures"]
   },
   {
-    id: "tempo",
-    eyebrow: "Movement",
-    question: "How should the music move?",
-    placeholder: "Add BPM, groove, or rhythmic detail...",
-    options: ["Slow burn", "Laid-back", "Mid-tempo", "Upbeat", "Driving", "Free-time", "Builds gradually"]
-  },
-  {
-    id: "arrangement",
-    eyebrow: "Arc",
-    question: "How should the arrangement develop?",
-    placeholder: "Describe the opening, build, peak, and ending...",
-    options: ["Immediate hook", "Gradual build", "Verse / chorus", "Evolving loop", "Cinematic arc", "Improvised", "Minimal throughout"]
-  },
-  {
-    id: "production",
-    eyebrow: "Finish",
-    question: "What production character fits it?",
-    placeholder: "Describe the era, space, texture, or mix...",
-    options: ["Warm analog", "Modern polished", "Raw and live", "Lo-fi", "Wide cinematic", "Club-ready", "Acoustic", "Experimental"]
-  },
-  {
-    id: "purpose",
-    eyebrow: "Context",
-    question: "Where will people hear it?",
-    placeholder: "Describe the audience, scene, or visual setting...",
-    options: ["Focused listening", "Late-night background", "YouTube long-form", "Workout", "Film scene", "Gaming", "Meditation", "Social clip"]
-  },
-  {
-    id: "avoid",
-    eyebrow: "Boundaries",
-    question: "Anything Velvet should avoid?",
-    placeholder: "Genres, sounds, moods, lyrics, or production choices to exclude..."
+    id: "direction",
+    eyebrow: "Direction",
+    question: "What should define the final feel?",
+    placeholder: "Add tempo, structure, production notes, context, or anything to avoid...",
+    multiple: true,
+    options: ["Slow burn", "Upbeat", "Immediate hook", "Gradual build", "Warm analog", "Modern polished", "Cinematic", "YouTube-ready"]
   }
 ];
 
@@ -100,17 +74,6 @@ function releaseQuestion(mediaType: MediaType): Question {
       };
 }
 
-function vocalQuestion(): Question {
-  return {
-    id: "vocalDetail",
-    eyebrow: "Performance",
-    question: "What should the voice and lyrics be like?",
-    placeholder: "Voice, delivery, language, perspective, and lyrical theme...",
-    options: ["Soft and close", "Powerful", "Conversational", "Airy", "Soulful", "Wordless", "English", "No fixed language"],
-    multiple: true
-  };
-}
-
 export function PromptProducer({
   open,
   mediaType,
@@ -129,11 +92,8 @@ export function PromptProducer({
   const [error, setError] = useState("");
 
   const questions = useMemo(() => {
-    const next = [...sharedQuestions.slice(0, 4)];
-    if (answers.vocals && answers.vocals !== "Instrumental") next.push(vocalQuestion());
-    next.push(...sharedQuestions.slice(4, 5), releaseQuestion(mediaType), ...sharedQuestions.slice(5));
-    return next;
-  }, [answers.vocals, mediaType]);
+    return [...sharedQuestions.slice(0, 4), releaseQuestion(mediaType), ...sharedQuestions.slice(4)];
+  }, [mediaType]);
 
   const safeStep = Math.min(step, questions.length - 1);
   const current = questions[safeStep];

@@ -102,6 +102,7 @@ test.describe("Velvet dashboard", () => {
     await page.goto("/projects/new");
     await page.getByRole("button", { name: "Prompt Producer" }).click();
     await expect(page.getByRole("dialog", { name: "Prompt Producer" })).toBeVisible();
+    await expect(page.getByText("01 / 06", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Jazz" }).click();
     await page.getByRole("button", { name: "Next", exact: true }).click();
