@@ -160,7 +160,7 @@ function Sidebar({ pathname }: { pathname: string }) {
 
       <nav className="mt-8 flex-1 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+          const isActive = isActiveNavItem(pathname, item.href);
           const Icon = item.icon;
           return (
             <Link
@@ -205,6 +205,18 @@ function Sidebar({ pathname }: { pathname: string }) {
       </div>
     </aside>
   );
+}
+
+function isActiveNavItem(pathname: string, href: string) {
+  if (href === "/projects") {
+    return pathname === "/projects" || (pathname.startsWith("/projects/") && pathname !== "/projects/new");
+  }
+
+  if (href === "/projects/new") {
+    return pathname === "/projects/new";
+  }
+
+  return pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
 }
 
 function TopBar({ pageTitle }: { pageTitle: string }) {

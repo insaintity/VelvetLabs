@@ -75,6 +75,8 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("heading", { name: "Describe the album." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create Blueprint" })).toBeVisible();
     await expect(page.getByText("ChatGPT and ElevenLabs calls stay blocked until approved.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Album" })).toHaveClass(/border-\[var\(--border-active\)\]/);
+    await expect(page.getByRole("link", { name: "Projects" })).not.toHaveClass(/border-\[var\(--border-active\)\]/);
   });
 
   test("shows focused onboarding for ChatGPT, ElevenLabs and YouTube", async ({ page }) => {
