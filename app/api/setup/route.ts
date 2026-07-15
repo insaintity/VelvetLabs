@@ -1,20 +1,47 @@
 import { NextResponse } from "next/server";
 import { readDatabase, updateSetup } from "@/lib/server/db";
 import { requireSameOrigin } from "@/lib/server/security";
-import { hasSecret, saveSecret } from "@/lib/server/secrets";
+import { hasSecret, readSecret, saveSecret } from "@/lib/server/secrets";
+
+function maskCredential(value?: string) {
+  if (!value) return undefined;
+  const prefix = value.startsWith("sk-") ? "sk-" : "";
+  return `${prefix}••••${value.slice(-4)}`;
+}
+
+async function getSecretSummary() {
+  const [openai, elevenlabs, youtube, googleClientId, googleClientSecret, database, storage] = await Promise.all([
+    readSecret("openai"),
+    readSecret("elevenlabs"),
+    hasSecret("youtubeRefreshToken"),
+    hasSecret("googleClientId"),
+    hasSecret("googleClientSecret"),
+    hasSecret("databaseUrl"),
+    hasSecret("supabaseServiceRole")
+  ]);
+
+  return {
+    secrets: {
+      openai: Boolean(openai),
+      elevenlabs: Boolean(elevenlabs),
+      youtube,
+      youtubeOAuth: googleClientId && googleClientSecret,
+      database,
+      storage
+    },
+    secretHints: {
+      openai: maskCredential(openai),
+      elevenlabs: maskCredential(elevenlabs)
+    }
+  };
+}
 
 export async function GET() {
   const database = await readDatabase();
+  const summary = await getSecretSummary();
   return NextResponse.json({
     setup: database.setup,
-    secrets: {
-      openai: await hasSecret("openai"),
-      elevenlabs: await hasSecret("elevenlabs"),
-      youtube: await hasSecret("youtubeRefreshToken"),
-      youtubeOAuth: await hasSecret("googleClientId") && await hasSecret("googleClientSecret"),
-      database: await hasSecret("databaseUrl"),
-      storage: await hasSecret("supabaseServiceRole")
-    }
+    ...summary
   });
 }
 
@@ -70,5 +97,5 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ setup });
+  return NextResponse.json({ setup, ...(await getSecretSummary()) });
 }

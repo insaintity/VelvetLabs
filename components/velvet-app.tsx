@@ -1155,6 +1155,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [savedNotice, setSavedNotice] = useState(false);
   const [setupMessage, setSetupMessage] = useState("Keys are encrypted before being stored locally.");
   const [providerStatus, setProviderStatus] = useState<Record<string, ClientStatus>>({});
+  const [savedKeyHints, setSavedKeyHints] = useState<Record<"openai" | "elevenlabs", string | undefined>>({ openai: undefined, elevenlabs: undefined });
   const [setupForm, setSetupForm] = useState<SetupForm>({
     openaiApiKey: "",
     elevenLabsApiKey: "",
@@ -1196,6 +1197,10 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
           worker: setup.worker?.status,
           database: setup.worker?.databaseStatus
         });
+        setSavedKeyHints({
+          openai: data.secretHints?.openai,
+          elevenlabs: data.secretHints?.elevenlabs
+        });
         setSetupForm((current) => ({
           ...current,
           planningModel: setup.openai?.planningModel ?? current.planningModel,
@@ -1221,7 +1226,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     setSetupForm((current) => ({ ...current, [field]: value }));
   }
 
-  async function saveSetup() {
+  async function saveSetup(validateServices = true) {
     setSetupMessage("Saving encrypted setup...");
     const response = await fetch("/api/setup", {
       method: "POST",
@@ -1229,21 +1234,42 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
       body: JSON.stringify(setupForm)
     });
     const data = await response.json();
-    setProviderStatus({
+    const savedStatuses = {
       openai: data.setup?.openai?.status,
       elevenlabs: data.setup?.elevenlabs?.status,
       youtube: data.setup?.youtube?.status,
       worker: data.setup?.worker?.status,
       database: data.setup?.worker?.databaseStatus
-    });
+    };
+    setProviderStatus(savedStatuses);
+    setSavedKeyHints({ openai: data.secretHints?.openai, elevenlabs: data.secretHints?.elevenlabs });
     setSavedNotice(response.ok);
-    setSetupMessage(response.ok ? "Setup saved. Run tests to verify provider keys." : "Setup could not be saved.");
+    setSetupMessage(response.ok ? "Setup saved. Checking connected services..." : "Setup could not be saved.");
+
+    if (response.ok && validateServices) {
+      const providers = (["openai", "elevenlabs"] as const).filter((provider) => data.secrets?.[provider]);
+      const results: Array<{ provider: "openai" | "elevenlabs"; status: ClientStatus }> = [];
+      for (const provider of providers) {
+        const validation = await fetch("/api/setup/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider })
+        });
+        const result = await validation.json();
+        results.push({ provider, status: result.status ?? { state: "invalid", message: "Provider check failed." } });
+      }
+      setProviderStatus((current) => ({
+        ...current,
+        ...Object.fromEntries(results.map(({ provider, status }) => [provider, status]))
+      }));
+      setSetupMessage(results.length ? "Setup saved and connected services checked." : "Setup saved.");
+    }
     return response.ok;
   }
 
   async function connectYouTube() {
     setSetupMessage("Saving YouTube connection details...");
-    if (await saveSetup()) window.location.assign("/api/youtube/login");
+    if (await saveSetup(false)) window.location.assign("/api/youtube/login");
   }
 
   async function validateProvider(provider: "openai" | "elevenlabs" | "database" | "storage") {
@@ -1338,17 +1364,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                 >
                   <Field
                     label="OpenAI API key"
-                    placeholder="sk-..."
+                    placeholder={savedKeyHints.openai ?? "sk-..."}
                     secret
                     value={setupForm.openaiApiKey}
                     onChange={(value) => updateSetupForm("openaiApiKey", value)}
                     help="Used for song and album planning, prompt rewriting, artwork prompts, and metadata."
                   />
-                  <div className="flex gap-2">
-                    <button onClick={() => validateProvider("openai")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
-                      Test ChatGPT key
-                    </button>
-                  </div>
+                  {savedKeyHints.openai ? <p className="text-xs text-[var(--success)]">Saved key: {savedKeyHints.openai}</p> : null}
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet chooses the planning and image models automatically.</p>
                   <StatusLine status={providerStatus.openai} />
                 </SetupCard>
@@ -1361,17 +1383,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                 >
                   <Field
                     label="ElevenLabs API key"
-                    placeholder="Enter key"
+                    placeholder={savedKeyHints.elevenlabs ?? "Enter key"}
                     secret
                     value={setupForm.elevenLabsApiKey}
                     onChange={(value) => updateSetupForm("elevenLabsApiKey", value)}
                     help="Used only after you approve track prompts."
                   />
-                  <div className="flex gap-2">
-                    <button onClick={() => validateProvider("elevenlabs")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
-                      Check key & usage
-                    </button>
-                  </div>
+                  {savedKeyHints.elevenlabs ? <p className="text-xs text-[var(--success)]">Saved key: {savedKeyHints.elevenlabs}</p> : null}
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet uses the default ElevenLabs music model and reads quota usage from the key.</p>
                   <StatusLine status={providerStatus.elevenlabs} />
                 </SetupCard>
@@ -1381,6 +1399,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
             ) : null}
 
             {activeSetupStep === "youtube" ? (
+              <div className="space-y-3">
               <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-3">
                 <SetupCard
                   icon={<Youtube className="h-5 w-5" />}
@@ -1416,6 +1435,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                     </div>
                   </div>
                 </div>
+              </div>
+              {youtubeStatus ? <YouTubeStatusNotice status={youtubeStatus} /> : null}
               </div>
             ) : null}
 
@@ -1473,8 +1494,6 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
             ) : null}
           </div>
 
-          {youtubeStatus ? <YouTubeStatusNotice status={youtubeStatus} /> : null}
-
           <div className="settings-security mt-3 flex items-center justify-between gap-4 rounded-xl border border-[rgba(239,99,152,0.22)] bg-[rgba(239,99,152,0.06)] p-3">
             <div>
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -1486,7 +1505,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
             </p>
             </div>
             <button
-              onClick={saveSetup}
+              onClick={() => saveSetup()}
               className="h-10 shrink-0 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium"
               title="Stores configuration after backend secret storage is enabled."
             >
