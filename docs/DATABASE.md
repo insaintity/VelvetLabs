@@ -1,6 +1,6 @@
 # Database
 
-Phase 2 will add Supabase PostgreSQL with RLS.
+Velvet uses standard PostgreSQL for its hosted project, prompt, job, upload, and usage mirror. The current schema is portable across Railway Postgres, Neon, and other PostgreSQL providers.
 
 Planned tables:
 

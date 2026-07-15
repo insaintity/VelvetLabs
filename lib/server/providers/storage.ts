@@ -1,74 +1,97 @@
+import { GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { SetupRecord } from "../types";
 import { readSecret } from "../secrets";
 
 export type StorageConfig = {
-  url: string;
-  key: string;
+  endpoint?: string;
+  region: string;
   bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  forcePathStyle: boolean;
 };
 
 export async function getStorageConfig(setup?: SetupRecord): Promise<StorageConfig | undefined> {
-  const url = (process.env.SUPABASE_URL || setup?.worker?.supabaseUrl)?.replace(/\/$/, "");
-  const key = await readSecret("supabaseServiceRole");
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET || setup?.worker?.storageBucket || "velvet-assets";
-  if (!url || !key) return undefined;
-  return { url, key, bucket };
-}
+  const endpoint = firstValue(process.env.AWS_ENDPOINT_URL, process.env.S3_ENDPOINT, process.env.STORAGE_ENDPOINT, setup?.worker?.storageEndpoint)?.replace(/\/$/, "");
+  const region = firstValue(process.env.AWS_DEFAULT_REGION, process.env.AWS_REGION, process.env.S3_REGION, process.env.STORAGE_REGION, setup?.worker?.storageRegion) || "auto";
+  const bucket = firstValue(process.env.AWS_S3_BUCKET_NAME, process.env.S3_BUCKET, process.env.STORAGE_BUCKET, setup?.worker?.storageBucket);
+  const accessKeyId = await readSecret("storageAccessKeyId");
+  const secretAccessKey = await readSecret("storageSecretAccessKey");
+  const forcePathStyle = parseUrlStyle(process.env.AWS_S3_URL_STYLE, setup?.worker?.storageForcePathStyle);
 
-export async function ensureStorageBucket(config: StorageConfig) {
-  const existing = await storageRequest(config, `/bucket/${encodeURIComponent(config.bucket)}`);
-  if (existing.ok) return;
-  if (existing.status !== 400 && existing.status !== 404) throw await storageError(existing, "Storage bucket could not be checked");
-  const created = await storageRequest(config, "/bucket", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: config.bucket, name: config.bucket, public: false })
-  });
-  if (!created.ok && created.status !== 409) throw await storageError(created, "Storage bucket could not be created");
+  if (!bucket || !accessKeyId || !secretAccessKey) return undefined;
+  return { endpoint, region, bucket, accessKeyId, secretAccessKey, forcePathStyle };
 }
 
 export async function uploadStorageObject(config: StorageConfig, objectPath: string, data: Buffer, contentType: string) {
-  await ensureStorageBucket(config);
-  const response = await storageRequest(config, `/object/${encodeURIComponent(config.bucket)}/${encodeObjectPath(objectPath)}`, {
-    method: "POST",
-    headers: { "Content-Type": contentType, "x-upsert": "true" },
-    body: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
-  });
-  if (!response.ok) throw await storageError(response, "Storage upload failed");
+  await createStorageClient(config).send(new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: normalizeObjectPath(objectPath),
+    Body: data,
+    ContentType: contentType
+  }));
   return objectPath;
 }
 
 export async function downloadStorageObject(config: StorageConfig, objectPath: string) {
-  const response = await storageRequest(config, `/object/authenticated/${encodeURIComponent(config.bucket)}/${encodeObjectPath(objectPath)}`);
-  if (!response.ok) throw await storageError(response, "Storage download failed");
-  return Buffer.from(await response.arrayBuffer());
+  const response = await createStorageClient(config).send(new GetObjectCommand({
+    Bucket: config.bucket,
+    Key: normalizeObjectPath(objectPath)
+  }));
+  if (!response.Body) throw new Error("Storage object returned an empty body.");
+  return readBody(response.Body);
 }
 
 export async function validateStorage(config: StorageConfig) {
   try {
-    await ensureStorageBucket(config);
+    await createStorageClient(config).send(new HeadBucketCommand({ Bucket: config.bucket }));
     return { valid: true, message: `Private bucket ${config.bucket} is ready.` };
   } catch (error) {
-    return { valid: false, message: error instanceof Error ? error.message : "Storage validation failed." };
+    return { valid: false, message: storageErrorMessage(error) };
   }
 }
 
-function storageRequest(config: StorageConfig, pathname: string, init?: RequestInit) {
-  return fetch(`${config.url}/storage/v1${pathname}`, {
-    ...init,
-    headers: {
-      apikey: config.key,
-      Authorization: `Bearer ${config.key}`,
-      ...init?.headers
+function createStorageClient(config: StorageConfig) {
+  return new S3Client({
+    endpoint: config.endpoint,
+    region: config.region,
+    forcePathStyle: config.forcePathStyle,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey
     }
   });
 }
 
-function encodeObjectPath(objectPath: string) {
-  return objectPath.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+function firstValue(...values: Array<string | undefined>) {
+  return values.find((value) => value?.trim())?.trim();
 }
 
-async function storageError(response: Response, message: string) {
-  const detail = (await response.text().catch(() => "")).slice(0, 240);
-  return new Error(`${message} (${response.status})${detail ? `: ${detail}` : "."}`);
+function parseUrlStyle(value: string | undefined, configured: boolean | undefined) {
+  if (value?.toLowerCase() === "path") return true;
+  if (value?.toLowerCase() === "virtual") return false;
+  return configured ?? false;
+}
+
+function normalizeObjectPath(objectPath: string) {
+  return objectPath.split("/").filter(Boolean).join("/");
+}
+
+async function readBody(body: unknown) {
+  if (typeof body === "object" && body && "transformToByteArray" in body && typeof body.transformToByteArray === "function") {
+    return Buffer.from(await body.transformToByteArray());
+  }
+
+  if (typeof body === "object" && body && Symbol.asyncIterator in body) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) chunks.push(Buffer.from(chunk));
+    return Buffer.concat(chunks);
+  }
+
+  throw new Error("Storage object body could not be read.");
+}
+
+function storageErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return "Storage validation failed.";
+  return error.message.length > 240 ? `${error.message.slice(0, 237)}...` : error.message;
 }

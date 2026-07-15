@@ -7,7 +7,7 @@ Future structure:
 - `apps/web`: Next.js App Router studio
 - `apps/worker`: durable generation, render and upload jobs
 - `packages/ui`: shared visual primitives
-- `packages/database`: Supabase schema, RLS and typed queries
+- `packages/database`: PostgreSQL schema, migrations and typed queries
 - `packages/ai`: ChatGPT/OpenAI planning, image and metadata workflows
 - `packages/integrations`: ElevenLabs and YouTube clients
 - `packages/media`: FFmpeg and FFprobe pipelines

@@ -6,6 +6,19 @@ import { validatePostgresConnection } from "@/lib/server/providers/postgres";
 import { getStorageConfig, validateStorage } from "@/lib/server/providers/storage";
 import { requireSameOrigin } from "@/lib/server/security";
 import { readSecret } from "@/lib/server/secrets";
+import type { SetupRecord } from "@/lib/server/types";
+
+function workerSettings(setup: SetupRecord, patch: Partial<NonNullable<SetupRecord["worker"]>> = {}): NonNullable<SetupRecord["worker"]> {
+  return {
+    storageEndpoint: setup.worker?.storageEndpoint,
+    storageRegion: setup.worker?.storageRegion ?? "auto",
+    storageForcePathStyle: setup.worker?.storageForcePathStyle ?? false,
+    storageBucket: setup.worker?.storageBucket ?? "velvet-assets",
+    status: setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
+    databaseStatus: setup.worker?.databaseStatus,
+    ...patch
+  };
+}
 
 export async function POST(request: Request) {
   const blocked = requireSameOrigin(request);
@@ -55,26 +68,14 @@ export async function POST(request: Request) {
     const databaseUrl = await readSecret("databaseUrl");
     if (!databaseUrl) {
       const setup = await updateSetup({
-        worker: {
-          supabaseUrl: database.setup.worker?.supabaseUrl,
-          supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
-          storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
-          status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
-          databaseStatus: { state: "missing", message: "Add a Supabase/Postgres database URL first.", checkedAt: now }
-        }
+        worker: workerSettings(database.setup, { databaseStatus: { state: "missing", message: "Add a PostgreSQL database URL first.", checkedAt: now } })
       });
       return NextResponse.json({ status: setup.worker?.databaseStatus }, { status: 400 });
     }
 
     const result = await validatePostgresConnection(databaseUrl);
     const setup = await updateSetup({
-      worker: {
-        supabaseUrl: database.setup.worker?.supabaseUrl,
-        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
-        storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
-        status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
-        databaseStatus: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now }
-      }
+      worker: workerSettings(database.setup, { databaseStatus: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now } })
     });
     return NextResponse.json({ status: setup.worker?.databaseStatus }, { status: result.valid ? 200 : 401 });
   }
@@ -84,25 +85,13 @@ export async function POST(request: Request) {
     const config = await getStorageConfig(database.setup);
     if (!config) {
       const setup = await updateSetup({
-        worker: {
-          supabaseUrl: database.setup.worker?.supabaseUrl,
-          supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
-          storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
-          status: { state: "missing", message: "Add a Supabase URL and server-side storage key first.", checkedAt: now },
-          databaseStatus: database.setup.worker?.databaseStatus
-        }
+        worker: workerSettings(database.setup, { status: { state: "missing", message: "Add a Railway bucket or S3-compatible storage credentials first.", checkedAt: now } })
       });
       return NextResponse.json({ status: setup.worker?.status }, { status: 400 });
     }
     const result = await validateStorage(config);
     const setup = await updateSetup({
-      worker: {
-        supabaseUrl: database.setup.worker?.supabaseUrl,
-        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
-        storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
-        status: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now },
-        databaseStatus: database.setup.worker?.databaseStatus
-      }
+      worker: workerSettings(database.setup, { status: { state: result.valid ? "valid" : "invalid", message: result.message, checkedAt: now } })
     });
     return NextResponse.json({ status: setup.worker?.status }, { status: result.valid ? 200 : 401 });
   }

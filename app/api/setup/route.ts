@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { readDatabase, updateSetup } from "@/lib/server/db";
+import { getStorageConfig } from "@/lib/server/providers/storage";
 import { requireSameOrigin } from "@/lib/server/security";
 import { hasSecret, readSecret, saveSecret } from "@/lib/server/secrets";
+import type { SetupRecord } from "@/lib/server/types";
 
 function maskCredential(value?: string) {
   if (!value) return undefined;
@@ -9,7 +11,7 @@ function maskCredential(value?: string) {
   return `${prefix}••••${value.slice(-4)}`;
 }
 
-async function getSecretSummary() {
+async function getSecretSummary(setup?: SetupRecord) {
   const [openai, elevenlabs, youtube, googleClientId, googleClientSecret, database, storage] = await Promise.all([
     readSecret("openai"),
     readSecret("elevenlabs"),
@@ -17,7 +19,7 @@ async function getSecretSummary() {
     hasSecret("googleClientId"),
     hasSecret("googleClientSecret"),
     hasSecret("databaseUrl"),
-    hasSecret("supabaseServiceRole")
+    getStorageConfig(setup)
   ]);
 
   return {
@@ -27,7 +29,7 @@ async function getSecretSummary() {
       youtube,
       youtubeOAuth: googleClientId && googleClientSecret,
       database,
-      storage
+      storage: Boolean(storage)
     },
     secretHints: {
       openai: maskCredential(openai),
@@ -36,11 +38,34 @@ async function getSecretSummary() {
   };
 }
 
+function publicSetup(setup: SetupRecord, connections: { database: boolean; storage: boolean }): SetupRecord {
+  const worker = setup.worker;
+  const storageValidated = worker?.status.state === "valid" && worker.status.message?.startsWith("Private bucket ");
+  const databaseStatus = connections.database && !worker?.databaseStatus
+    ? { state: "unchecked" as const, message: "Host-provided PostgreSQL detected. Save Setup to verify it." }
+    : worker?.databaseStatus;
+  const storageStatus = connections.storage && !storageValidated
+    ? { state: "unchecked" as const, message: "Host-provided media storage detected. Save Setup to verify it." }
+    : worker?.status ?? { state: "valid" as const, message: "Local storage is ready." };
+
+  return {
+    ...setup,
+    worker: {
+      storageEndpoint: worker?.storageEndpoint,
+      storageRegion: worker?.storageRegion ?? "auto",
+      storageForcePathStyle: worker?.storageForcePathStyle ?? false,
+      storageBucket: worker?.storageBucket ?? "velvet-assets",
+      status: storageStatus,
+      databaseStatus
+    }
+  };
+}
+
 export async function GET() {
   const database = await readDatabase();
-  const summary = await getSecretSummary();
+  const summary = await getSecretSummary(database.setup);
   return NextResponse.json({
-    setup: database.setup,
+    setup: publicSetup(database.setup, { database: summary.secrets.database, storage: summary.secrets.storage }),
     ...summary
   });
 }
@@ -56,12 +81,19 @@ export async function POST(request: Request) {
   await saveSecret("googleClientId", body.googleClientId ?? "");
   await saveSecret("googleClientSecret", body.googleClientSecret ?? "");
   await saveSecret("databaseUrl", body.databaseUrl ?? "");
-  await saveSecret("workerSecret", body.workerSecret ?? "");
-  await saveSecret("supabaseServiceRole", body.supabaseServiceRoleKey ?? "");
+  await saveSecret("storageAccessKeyId", body.storageAccessKeyId ?? "");
+  await saveSecret("storageSecretAccessKey", body.storageSecretAccessKey ?? "");
   const hasOpenAI = Boolean(body.openaiApiKey) || (await hasSecret("openai"));
   const hasElevenLabs = Boolean(body.elevenLabsApiKey) || (await hasSecret("elevenlabs"));
   const hasDatabase = Boolean(body.databaseUrl) || (await hasSecret("databaseUrl"));
-  const hasStorage = Boolean(body.supabaseServiceRoleKey) || (await hasSecret("supabaseServiceRole"));
+  const workerSetup: NonNullable<SetupRecord["worker"]> = {
+    storageEndpoint: body.storageEndpoint || undefined,
+    storageRegion: body.storageRegion || "auto",
+    storageForcePathStyle: Boolean(body.storageForcePathStyle),
+    storageBucket: body.storageBucket || "velvet-assets",
+    status: { state: "unchecked" }
+  };
+  const hasStorage = Boolean(await getStorageConfig({ worker: workerSetup }));
 
   const setup = await updateSetup({
     openai: {
@@ -75,10 +107,8 @@ export async function POST(request: Request) {
       status: { state: hasElevenLabs ? "unchecked" : "missing", message: hasElevenLabs ? "Saved, not checked yet." : "Missing API key." }
     },
     worker: {
-      supabaseUrl: body.supabaseUrl || undefined,
-      supabasePublishableKey: body.supabasePublishableKey || undefined,
-      storageBucket: body.storageBucket || "velvet-assets",
-      status: { state: hasStorage && body.supabaseUrl ? "unchecked" : "valid", message: hasStorage && body.supabaseUrl ? "Shared storage saved, not checked yet." : "Local storage is ready." },
+      ...workerSetup,
+      status: { state: hasStorage ? "unchecked" : "valid", message: hasStorage ? "Private media storage saved, not checked yet." : "Local storage is ready." },
       databaseStatus: {
         state: hasDatabase ? "unchecked" : "missing",
         message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set."
@@ -97,5 +127,5 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ setup, ...(await getSecretSummary()) });
+  return NextResponse.json({ setup, ...(await getSecretSummary(setup)) });
 }

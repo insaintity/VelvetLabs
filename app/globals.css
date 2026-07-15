@@ -163,6 +163,10 @@ select:focus-visible {
     rgba(34, 29, 50, 0.5);
 }
 
+.studio-content:has([aria-modal="true"]) {
+  z-index: 60;
+}
+
 .studio-sidebar {
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.075), transparent 38%),

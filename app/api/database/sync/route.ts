@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   const databaseUrl = await readSecret("databaseUrl");
   if (!databaseUrl) {
-    return NextResponse.json({ error: "Add and save a Supabase/Postgres database URL first." }, { status: 409 });
+    return NextResponse.json({ error: "Add and save a PostgreSQL database URL first." }, { status: 409 });
   }
 
   try {
@@ -19,9 +19,9 @@ export async function POST(request: Request) {
     const counts = await syncVelvetDatabase(databaseUrl, database);
     await updateSetup({
       worker: {
-        ...database.setup.worker,
-        supabaseUrl: database.setup.worker?.supabaseUrl,
-        supabasePublishableKey: database.setup.worker?.supabasePublishableKey,
+        storageEndpoint: database.setup.worker?.storageEndpoint,
+        storageRegion: database.setup.worker?.storageRegion ?? "auto",
+        storageForcePathStyle: database.setup.worker?.storageForcePathStyle ?? false,
         storageBucket: database.setup.worker?.storageBucket ?? "velvet-assets",
         status: database.setup.worker?.status ?? { state: "valid", message: "Local storage is ready." },
         databaseStatus: {

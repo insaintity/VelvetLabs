@@ -121,12 +121,12 @@ type SetupForm = {
   imageModel: string;
   musicModel: string;
   outputFormat: string;
-  supabaseUrl: string;
-  supabasePublishableKey: string;
-  supabaseServiceRoleKey: string;
+  storageEndpoint: string;
+  storageRegion: string;
+  storageAccessKeyId: string;
+  storageSecretAccessKey: string;
   databaseUrl: string;
   storageBucket: string;
-  workerSecret: string;
   maxTracksPerRun: string;
   maxRenderAttemptsPerProject: string;
   openaiInputPerMillionTokens: string;
@@ -1195,12 +1195,12 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     imageModel: "gpt-image-1",
     musicModel: "eleven-music",
     outputFormat: "mp3_44100_128",
-    supabaseUrl: "",
-    supabasePublishableKey: "",
-    supabaseServiceRoleKey: "",
+    storageEndpoint: "",
+    storageRegion: "auto",
+    storageAccessKeyId: "",
+    storageSecretAccessKey: "",
     databaseUrl: "",
     storageBucket: "velvet-assets",
-    workerSecret: "",
     maxTracksPerRun: "10",
     maxRenderAttemptsPerProject: "5",
     openaiInputPerMillionTokens: "",
@@ -1237,8 +1237,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
           imageModel: setup.openai?.imageModel ?? current.imageModel,
           musicModel: setup.elevenlabs?.musicModel ?? current.musicModel,
           outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
-          supabaseUrl: setup.worker?.supabaseUrl ?? current.supabaseUrl,
-          supabasePublishableKey: setup.worker?.supabasePublishableKey ?? current.supabasePublishableKey,
+          storageEndpoint: setup.worker?.storageEndpoint ?? current.storageEndpoint,
+          storageRegion: setup.worker?.storageRegion ?? current.storageRegion,
           storageBucket: setup.worker?.storageBucket ?? current.storageBucket,
           maxTracksPerRun: String(setup.budget?.maxTracksPerRun ?? current.maxTracksPerRun),
           maxRenderAttemptsPerProject: String(setup.budget?.maxRenderAttemptsPerProject ?? current.maxRenderAttemptsPerProject),
@@ -1277,8 +1277,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     setSetupMessage(response.ok ? "Setup saved. Checking connected services..." : "Setup could not be saved.");
 
     if (response.ok && validateServices) {
-      const providers = (["openai", "elevenlabs"] as const).filter((provider) => data.secrets?.[provider]);
-      const results: Array<{ provider: "openai" | "elevenlabs"; status: ClientStatus }> = [];
+      const providers = (["openai", "elevenlabs", "database", "storage"] as const).filter((provider) => data.secrets?.[provider]);
+      const results: Array<{ provider: "openai" | "elevenlabs" | "database" | "storage"; status: ClientStatus }> = [];
       for (const provider of providers) {
         const validation = await fetch("/api/setup/validate", {
           method: "POST",
@@ -1300,18 +1300,6 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   async function connectYouTube() {
     setSetupMessage("Saving YouTube connection details...");
     if (await saveSetup(false)) window.location.assign("/api/youtube/login");
-  }
-
-  async function validateProvider(provider: "openai" | "elevenlabs" | "database" | "storage") {
-    setSetupMessage(`Checking ${provider === "openai" ? "ChatGPT" : provider === "elevenlabs" ? "ElevenLabs" : provider}...`);
-    const response = await fetch("/api/setup/validate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider })
-    });
-    const data = await response.json();
-    setProviderStatus((current) => ({ ...current, [provider]: data.status }));
-    setSetupMessage(data.status?.message ?? (response.ok ? "Provider is ready." : "Provider check failed."));
   }
 
   async function syncDatabase() {
@@ -1474,27 +1462,21 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
               <div className="grid grid-cols-2 gap-3">
                 <SetupCard
                   icon={<Database className="h-5 w-5" />}
-                  title="Storage & worker"
-                  body="Needed later for generated audio, images, videos, logs and long-running jobs."
+                  title="Database & media"
+                  body="Railway connections are detected automatically. Manual S3 and PostgreSQL details remain available for desktop or another host."
                   status={formatProviderStatus(providerStatus.worker)}
                 >
-                  <AdvancedSetup label="Storage and worker settings">
+                  <AdvancedSetup label="Database and media settings">
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Supabase URL" placeholder="https://project.supabase.co" value={setupForm.supabaseUrl} onChange={(value) => updateSetupForm("supabaseUrl", value)} help="Used as the Supabase project reference for future storage/API wiring." />
-                      <Field label="Publishable key" placeholder="sb_publishable_..." value={setupForm.supabasePublishableKey} onChange={(value) => updateSetupForm("supabasePublishableKey", value)} help="Safe client-side Supabase key for future storage and auth flows." />
-                      <Field label="Storage service key" placeholder="sb_secret_..." secret value={setupForm.supabaseServiceRoleKey} onChange={(value) => updateSetupForm("supabaseServiceRoleKey", value)} help="Server-only Supabase secret/service-role key. Encrypted locally and never returned to the browser." />
-                      <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Where audio, artwork, renders, logs, and metadata will be stored." />
-                      <Field label="Database URL" placeholder="postgres://..." secret value={setupForm.databaseUrl} onChange={(value) => updateSetupForm("databaseUrl", value)} help="Saved encrypted. Use the Supabase pooled or direct Postgres connection string." />
-                      <Field label="Worker secret" placeholder="Enter secret" secret value={setupForm.workerSecret} onChange={(value) => updateSetupForm("workerSecret", value)} help="Used to verify long-running background job requests." />
+                      <Field label="Storage endpoint" placeholder="https://storage.railway.app" value={setupForm.storageEndpoint} onChange={(value) => updateSetupForm("storageEndpoint", value)} help="Leave blank when Railway injects bucket credentials." />
+                      <Field label="Storage bucket" placeholder="velvet-assets" value={setupForm.storageBucket} onChange={(value) => updateSetupForm("storageBucket", value)} help="Private bucket for generated audio, artwork, manifests, and renders." />
+                      <Field label="Storage access key" placeholder="Access key ID" secret value={setupForm.storageAccessKeyId} onChange={(value) => updateSetupForm("storageAccessKeyId", value)} help="Encrypted locally. Railway can provide this automatically." />
+                      <Field label="Storage secret key" placeholder="Secret access key" secret value={setupForm.storageSecretAccessKey} onChange={(value) => updateSetupForm("storageSecretAccessKey", value)} help="Encrypted locally and never returned to the browser." />
+                      <Field label="Storage region" placeholder="auto" value={setupForm.storageRegion} onChange={(value) => updateSetupForm("storageRegion", value)} help="Use auto for Railway and Cloudflare R2." />
+                      <Field label="Database URL" placeholder="postgresql://..." secret value={setupForm.databaseUrl} onChange={(value) => updateSetupForm("databaseUrl", value)} help="Leave blank when Railway injects DATABASE_URL." />
                     </div>
                   </AdvancedSetup>
-                  <button onClick={() => validateProvider("database")} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
-                    Test Database
-                  </button>
-                  <button onClick={() => validateProvider("storage")} className="ml-2 h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
-                    Test Storage
-                  </button>
-                  <button onClick={syncDatabase} className="ml-2 h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
+                  <button onClick={syncDatabase} className="h-8 rounded-lg border border-[var(--border)] bg-white/[0.05] px-3 text-xs text-[var(--text-secondary)]">
                     Initialize & Sync
                   </button>
                   <StatusLine status={providerStatus.database} />

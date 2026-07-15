@@ -10,8 +10,8 @@ type SecretName =
   | "youtubeOAuthState"
   | "youtubeRefreshToken"
   | "databaseUrl"
-  | "workerSecret"
-  | "supabaseServiceRole";
+  | "storageAccessKeyId"
+  | "storageSecretAccessKey";
 
 type SecretStore = Partial<Record<SecretName, EncryptedValue>>;
 
@@ -24,8 +24,8 @@ const envSecretNames: Record<SecretName, string[]> = {
   youtubeOAuthState: [],
   youtubeRefreshToken: ["YOUTUBE_REFRESH_TOKEN"],
   databaseUrl: ["DATABASE_URL"],
-  workerSecret: ["WORKER_SECRET"],
-  supabaseServiceRole: ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"]
+  storageAccessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID", "STORAGE_ACCESS_KEY_ID"],
+  storageSecretAccessKey: ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY", "STORAGE_SECRET_ACCESS_KEY"]
 };
 
 async function readSecretStore(): Promise<SecretStore> {

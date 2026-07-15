@@ -16,11 +16,11 @@ Implemented:
 - Encrypted local secret storage under `.velvet/`
 - Env-backed production secret provider option
 - HashiCorp Vault-compatible managed secret provider option
-- User-provided Supabase/Postgres database URL storage and validation
-- Supabase/Postgres schema initialization and local-record sync
+- User-provided PostgreSQL database URL storage and validation
+- PostgreSQL schema initialization and local-record sync
 - Hosted/local database conflict merge with newest-record wins
-- Supabase CLI project linked to `tivxgfblnzwfwtynbbuu`
-- Velvet schema migration applied remotely
+- Provider-neutral PostgreSQL migration
+- Railway-compatible S3 media storage with automatic environment detection
 - Opt-in Postgres hosted mirror mode via `VELVET_DATABASE_MODE=postgres`
 - Real OpenAI key validation
 - Real ElevenLabs key validation

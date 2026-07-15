@@ -1,33 +1,66 @@
+import { GetObjectCommand, HeadBucketCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadStorageObject, getStorageConfig, uploadStorageObject } from "./storage";
+import { downloadStorageObject, getStorageConfig, uploadStorageObject, validateStorage } from "./storage";
 
-describe("Supabase Storage provider", () => {
+const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
+
+vi.mock("@aws-sdk/client-s3", async () => {
+  const actual = await vi.importActual<typeof import("@aws-sdk/client-s3")>("@aws-sdk/client-s3");
+  return {
+    ...actual,
+    S3Client: class {
+      send = sendMock;
+    }
+  };
+});
+
+describe("S3-compatible storage provider", () => {
   afterEach(() => {
+    sendMock.mockReset();
     vi.unstubAllEnvs();
-    vi.restoreAllMocks();
   });
 
-  it("uses server-only credentials and a private bucket", async () => {
-    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co/");
-    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test");
-    vi.stubEnv("SUPABASE_STORAGE_BUCKET", "velvet-private");
-    const config = await getStorageConfig();
-    expect(config).toEqual({ url: "https://example.supabase.co", key: "sb_secret_test", bucket: "velvet-private" });
+  it("uses Railway bucket credentials without manual setup", async () => {
+    vi.stubEnv("AWS_ENDPOINT_URL", "https://storage.railway.app/");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "railway-access");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "railway-secret");
+    vi.stubEnv("AWS_S3_BUCKET_NAME", "velvet-private-123");
+    vi.stubEnv("AWS_DEFAULT_REGION", "auto");
+    vi.stubEnv("AWS_S3_URL_STYLE", "virtual");
+
+    await expect(getStorageConfig()).resolves.toEqual({
+      endpoint: "https://storage.railway.app",
+      region: "auto",
+      bucket: "velvet-private-123",
+      accessKeyId: "railway-access",
+      secretAccessKey: "railway-secret",
+      forcePathStyle: false
+    });
   });
 
-  it("uploads and downloads authenticated objects", async () => {
-    const config = { url: "https://example.supabase.co", key: "service-key", bucket: "velvet-assets" };
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
-      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+  it("uploads, downloads, and validates private objects", async () => {
+    const config = {
+      endpoint: "https://storage.example.com",
+      region: "auto",
+      bucket: "velvet-assets",
+      accessKeyId: "access-key",
+      secretAccessKey: "secret-key",
+      forcePathStyle: false
+    };
+    sendMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3]) } })
+      .mockResolvedValueOnce({});
 
     await uploadStorageObject(config, "projects/release/audio one.mp3", Buffer.from([1, 2, 3]), "audio/mpeg");
     const downloaded = await downloadStorageObject(config, "projects/release/audio one.mp3");
+    const validation = await validateStorage(config);
 
     expect(downloaded).toEqual(Buffer.from([1, 2, 3]));
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example.supabase.co/storage/v1/object/velvet-assets/projects/release/audio%20one.mp3");
-    expect(fetchMock.mock.calls[2]?.[0]).toBe("https://example.supabase.co/storage/v1/object/authenticated/velvet-assets/projects/release/audio%20one.mp3");
-    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get("authorization")).toBe("Bearer service-key");
+    expect(validation).toEqual({ valid: true, message: "Private bucket velvet-assets is ready." });
+    expect(sendMock.mock.calls[0]?.[0]).toBeInstanceOf(PutObjectCommand);
+    expect(sendMock.mock.calls[1]?.[0]).toBeInstanceOf(GetObjectCommand);
+    expect(sendMock.mock.calls[2]?.[0]).toBeInstanceOf(HeadBucketCommand);
+    expect(sendMock.mock.calls[0]?.[0].input).toMatchObject({ Bucket: "velvet-assets", Key: "projects/release/audio one.mp3", ContentType: "audio/mpeg" });
   });
 });

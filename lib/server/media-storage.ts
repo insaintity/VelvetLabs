@@ -21,7 +21,7 @@ export async function readMedia(localPath: string | undefined, storagePath: stri
     }
   }
   const config = await getStorageConfig(setup);
-  if (!config || !storagePath) throw new Error("Shared media is unavailable. Configure Supabase Storage or restore the local file.");
+  if (!config || !storagePath) throw new Error("Shared media is unavailable. Configure S3-compatible storage or restore the local file.");
   return downloadStorageObject(config, storagePath);
 }
 

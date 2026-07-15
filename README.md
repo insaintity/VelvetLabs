@@ -10,9 +10,9 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Onboards the required services: ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker settings.
 - Encrypts provider secrets before local storage.
 - Validates OpenAI and ElevenLabs keys.
-- Lets users provide their own Supabase/Postgres database URL and validates the connection.
-- Initializes `velvet_*` tables in a user-provided Supabase/Postgres database and syncs local records into them.
-- Includes a Supabase CLI migration for the Velvet schema.
+- Lets users provide any PostgreSQL database URL and validates the connection.
+- Initializes `velvet_*` tables in PostgreSQL and syncs local records into them.
+- Includes a portable PostgreSQL migration for the Velvet schema.
 - Supports opt-in hosted database mirroring with `VELVET_DATABASE_MODE=postgres`.
 - Generates song and album blueprints with OpenAI once setup is complete.
 - Provides a project review screen for approving blueprints before paid generation.
@@ -22,7 +22,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Refines track prompts with OpenAI while preserving the original prompt and explanation in version history.
 - Provides a draggable album timeline with mastering presets, gaps, fades, target loudness, runtime, and scheduled publishing.
 - Imports audio and artwork references into the protected project export directory.
-- Mirrors generated audio, references, manifests, and rendered video into a private Supabase Storage bucket when server credentials are configured.
+- Mirrors generated audio, references, manifests, and rendered video into private S3-compatible storage when server credentials are configured.
 - Restores shared media automatically when Railway web and worker services do not share a local filesystem.
 - Generates reviewable YouTube title and thumbnail-direction variants before they are applied.
 - Stores projects, prompt versions, jobs, and upload records in a local project database.
@@ -165,9 +165,11 @@ Important variables include:
 - `GOOGLE_CLIENT_SECRET`
 - `YOUTUBE_REDIRECT_URI` such as `http://localhost:3000/api/youtube/callback` (optional; derived from the current app address when omitted)
 - `FFMPEG_PATH` optional path to `ffmpeg.exe` when FFmpeg is not on PATH
-- `SUPABASE_URL`
-- `SUPABASE_SECRET_KEY` or the legacy `SUPABASE_SERVICE_ROLE_KEY` for server-only private media storage
-- `SUPABASE_STORAGE_BUCKET`, defaulting to `velvet-assets`
+- `AWS_ENDPOINT_URL`, automatically supplied by Railway Buckets or set to another S3-compatible endpoint
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for private media storage
+- `AWS_S3_BUCKET_NAME`, defaulting to `velvet-assets`
+- `AWS_DEFAULT_REGION`, normally `auto` for Railway and Cloudflare R2
+- `AWS_S3_URL_STYLE`, normally `virtual`
 - `DATABASE_URL`
 - `VELVET_DATABASE_MODE` set to `postgres` to mirror runtime records into the configured database
 - `VELVET_SECRET_PROVIDER` set to `env` to read secrets from deployment environment variables
@@ -176,7 +178,6 @@ Important variables include:
 - `YOUTUBE_REFRESH_TOKEN` for env-backed YouTube OAuth token storage
 - `VELVET_OPENAI_INPUT_PER_1M_TOKENS_USD`, `VELVET_OPENAI_OUTPUT_PER_1M_TOKENS_USD`, `VELVET_ELEVENLABS_PER_MINUTE_USD`, `VELVET_FFMPEG_PER_RENDER_MINUTE_USD`, and `VELVET_YOUTUBE_UPLOAD_PER_VIDEO_USD` for optional local cost estimates
 - `VELVET_WORKER_INTERVAL_MS` polling interval for the local durable worker
-- `WORKER_SECRET`
 
 ## Current Limitations
 
@@ -184,8 +185,8 @@ Important variables include:
 - Long-running music, render, and upload work is queued for the worker process. Production should run the worker as a managed service/container.
 - The render endpoint creates a render manifest and renders a release MP4 when FFmpeg is available.
 - YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
-- User-provided Supabase/Postgres connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
-- Shared Supabase Storage is optional locally and required when production web and worker services do not share a persistent volume.
+- User-provided PostgreSQL connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
+- Shared S3-compatible storage is optional locally and required when production processes do not share durable media storage.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.
 - Stem downloads appear only when a connected music provider returns stem files; ElevenLabs music generation currently supplies the rendered track used by Velvet.
 

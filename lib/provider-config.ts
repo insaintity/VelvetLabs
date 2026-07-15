@@ -20,8 +20,7 @@ export const onboardingConfigSchema = z.object({
     defaultPrivacy: z.enum(["private", "unlisted", "public", "scheduled"]).default("private")
   }),
   worker: z.object({
-    storageBucket: z.string().min(1),
-    workerSecretEnvVar: z.string().min(1).default("WORKER_SECRET")
+    storageBucket: z.string().min(1)
   })
 });
 
@@ -47,7 +46,6 @@ export const defaultOnboardingConfig: OnboardingConfig = {
     defaultPrivacy: "private"
   },
   worker: {
-    storageBucket: "velvet-assets",
-    workerSecretEnvVar: "WORKER_SECRET"
+    storageBucket: "velvet-assets"
   }
 };

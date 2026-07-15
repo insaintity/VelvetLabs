@@ -40,7 +40,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 grid place-items-start bg-[rgba(19,14,28,.58)] px-4 pt-[12vh] backdrop-blur-md"
+          className="fixed inset-0 z-[70] grid place-items-start bg-[rgba(19,14,28,.58)] px-4 pt-[12vh] backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

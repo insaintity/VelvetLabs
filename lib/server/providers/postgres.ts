@@ -4,7 +4,6 @@ import type { JobRecord, ProjectRecord, PromptRecord, UploadRecord, UsageRecord,
 function createClient(connectionString: string) {
   return new Client({
     connectionString,
-    ssl: connectionString.includes("supabase.co") ? { rejectUnauthorized: false } : undefined,
     connectionTimeoutMillis: 8000
   });
 }

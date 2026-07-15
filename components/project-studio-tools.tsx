@@ -45,7 +45,7 @@ function Drawer({ open, onClose, title, icon, children, width = "max-w-[560px]" 
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+        <motion.div className="fixed inset-0 z-[70] flex justify-end bg-black/55 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
           <motion.section role="dialog" aria-modal="true" aria-label={title} className={`panel h-full w-full ${width} overflow-hidden rounded-none border-y-0 border-r-0 p-5`} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 28, opacity: 0 }} transition={{ type: "spring", stiffness: 260, damping: 28 }}>
             <div className="flex h-10 items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-white"><span className="text-[var(--rose-soft)]">{icon}</span>{title}</div>

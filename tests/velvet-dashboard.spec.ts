@@ -91,7 +91,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("link", { name: "Projects" })).not.toHaveAttribute("aria-current", "page");
 
     await page.getByRole("button", { name: "Display options" }).click();
-    const displayMenu = page.getByRole("menu", { name: "Display density" });
+    const displayMenu = page.getByRole("menu", { name: "Display options" });
     await expect(displayMenu).toBeVisible();
     await displayMenu.getByRole("menuitemradio", { name: "Compact" }).click();
     await expect(page.locator("main")).toHaveClass(/compact-density/);
@@ -136,15 +136,17 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Login to YouTube" })).toHaveAttribute("href", "/api/youtube/login");
+    await expect(page.getByRole("button", { name: "Login to YouTube" })).toBeVisible();
     await page.getByRole("button", { name: "03 Advanced" }).click();
-    await page.getByText("Storage and worker settings").click();
-    await expect(page.getByLabel("Supabase URL")).toBeVisible();
-    await expect(page.getByLabel("Publishable key")).toBeVisible();
-    await expect(page.getByLabel("Storage service key")).toBeVisible();
+    await page.getByText("Database and media settings").click();
+    await expect(page.getByLabel("Storage endpoint")).toBeVisible();
+    await expect(page.getByLabel("Storage bucket")).toBeVisible();
+    await expect(page.getByLabel("Storage access key")).toBeVisible();
+    await expect(page.getByLabel("Storage secret key")).toBeVisible();
+    await expect(page.getByLabel("Storage region")).toBeVisible();
     await expect(page.getByLabel("Database URL")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Test Database" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Test Storage" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Test Database" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Test Storage" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Initialize & Sync" })).toBeVisible();
     await expect(page.getByLabel("Max tracks/run")).toBeVisible();
     await expect(page.getByLabel("Max render attempts")).toBeVisible();
@@ -155,7 +157,8 @@ test.describe("Velvet dashboard", () => {
     await page.goto("/api/youtube/login");
 
     await expect(page).toHaveURL(/\/settings\?youtube=missing_config/);
-    await expect(page.getByText("YouTube login needs GOOGLE_CLIENT_ID")).toBeVisible();
+    await page.getByRole("button", { name: "02 YouTube" }).click();
+    await expect(page.getByText("Enter your Google OAuth client ID and secret")).toBeVisible();
   });
 
   test("keeps onboarding step labels inside their boxes", async ({ page }) => {
