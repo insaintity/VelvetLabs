@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import type { JobRecord, ProjectRecord, PromptRecord, UploadRecord, UsageRecord, VelvetDatabase } from "../types";
+import type { JobRecord, ProjectRecord, PromptRecord, SetupRecord, UploadRecord, UsageRecord, VelvetDatabase } from "../types";
 
 function createClient(connectionString: string) {
   return new Client({
@@ -31,6 +31,12 @@ export async function initializeVelvetSchema(connectionString: string) {
 
   try {
     await client.query(`
+      create table if not exists velvet_setup (
+        id text primary key,
+        payload jsonb not null,
+        updated_at timestamptz not null
+      );
+
       create table if not exists velvet_projects (
         id text primary key,
         title text not null,
@@ -88,6 +94,17 @@ export async function syncVelvetDatabase(connectionString: string, database: Vel
 
   try {
     await client.query("begin");
+
+    await client.query(
+      `
+      insert into velvet_setup (id, payload, updated_at)
+      values ('studio', $1, $2)
+      on conflict (id) do update set
+        payload = excluded.payload,
+        updated_at = excluded.updated_at
+    `,
+      [database.setup, database.setup.updatedAt ?? new Date().toISOString()]
+    );
 
     for (const project of database.projects) {
       await client.query(
@@ -187,6 +204,7 @@ export async function readVelvetDatabase(connectionString: string): Promise<Velv
   await client.connect();
 
   try {
+    const setup = await client.query("select payload from velvet_setup where id = 'studio'");
     const projects = await client.query("select payload from velvet_projects order by created_at desc");
     const prompts = await client.query("select payload from velvet_prompts order by created_at desc");
     const jobs = await client.query("select payload from velvet_jobs order by created_at desc");
@@ -194,7 +212,7 @@ export async function readVelvetDatabase(connectionString: string): Promise<Velv
     const usage = await client.query("select payload from velvet_usage order by created_at desc");
 
     return {
-      setup: {},
+      setup: (setup.rows[0]?.payload as SetupRecord | undefined) ?? {},
       projects: projects.rows.map((row: { payload: ProjectRecord }) => row.payload),
       prompts: prompts.rows.map((row: { payload: PromptRecord }) => row.payload),
       jobs: jobs.rows.map((row: { payload: JobRecord }) => row.payload),

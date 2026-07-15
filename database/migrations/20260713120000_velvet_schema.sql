@@ -1,3 +1,9 @@
+create table if not exists public.velvet_setup (
+  id text primary key,
+  payload jsonb not null,
+  updated_at timestamptz not null
+);
+
 create table if not exists public.velvet_projects (
   id text primary key,
   title text not null,

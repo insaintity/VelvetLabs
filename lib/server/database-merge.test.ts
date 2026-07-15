@@ -66,4 +66,13 @@ describe("hosted database merge", () => {
     expect(merged.projects.find((project) => project.id === "same")?.title).toBe("Local newer");
     expect(merged.prompts).toHaveLength(1);
   });
+
+  it("keeps the newest persisted setup record", () => {
+    const merged = mergeVelvetDatabases(
+      { ...empty, setup: { updatedAt: "2026-07-13T01:00:00.000Z" } },
+      { ...empty, setup: { updatedAt: "2026-07-13T02:00:00.000Z", worker: { storageBucket: "hosted", status: { state: "valid" } } } }
+    );
+
+    expect(merged.setup.worker?.storageBucket).toBe("hosted");
+  });
 });

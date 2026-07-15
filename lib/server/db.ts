@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { databasePath, ensureVelvetDir } from "./paths";
 import { estimateUsageCost } from "./costs";
 import { mergeVelvetDatabases } from "./database-merge";
-import { readVelvetDatabase, syncVelvetDatabase } from "./providers/postgres";
+import { initializeVelvetSchema, readVelvetDatabase, syncVelvetDatabase } from "./providers/postgres";
 import { readSecret } from "./secrets";
 import type { JobRecord, ProjectRecord, PromptRecord, SetupRecord, UsageRecord, VelvetDatabase } from "./types";
 
@@ -15,6 +15,20 @@ const emptyDatabase: VelvetDatabase = {
   uploads: [],
   usage: []
 };
+
+const schemaInitializations = new Map<string, Promise<void>>();
+
+function ensureHostedSchema(connectionString: string) {
+  const existing = schemaInitializations.get(connectionString);
+  if (existing) return existing;
+
+  const initialization = initializeVelvetSchema(connectionString).catch((error) => {
+    schemaInitializations.delete(connectionString);
+    throw error;
+  });
+  schemaInitializations.set(connectionString, initialization);
+  return initialization;
+}
 
 async function readLocalDatabase(): Promise<VelvetDatabase> {
   await ensureVelvetDir();
@@ -50,6 +64,7 @@ export async function readDatabase(): Promise<VelvetDatabase> {
   }
 
   try {
+    await ensureHostedSchema(connectionString);
     const hostedDatabase = await readVelvetDatabase(connectionString);
     const mergedDatabase = mergeVelvetDatabases(localDatabase, hostedDatabase);
     await writeLocalDatabase(mergedDatabase);
@@ -68,7 +83,9 @@ export async function writeDatabase(database: VelvetDatabase) {
     return;
   }
 
-  await syncVelvetDatabase(connectionString, database).catch(() => undefined);
+  await ensureHostedSchema(connectionString)
+    .then(() => syncVelvetDatabase(connectionString, database))
+    .catch(() => undefined);
 }
 
 export async function updateSetup(setup: SetupRecord) {

@@ -2,7 +2,7 @@ import type { JobRecord, ProjectRecord, VelvetDatabase } from "./types";
 
 export function mergeVelvetDatabases(localDatabase: VelvetDatabase, hostedDatabase: VelvetDatabase): VelvetDatabase {
   return {
-    setup: localDatabase.setup,
+    setup: readTime(hostedDatabase.setup.updatedAt) > readTime(localDatabase.setup.updatedAt) ? hostedDatabase.setup : localDatabase.setup,
     projects: sortByUpdatedAtDesc(mergeByNewest(localDatabase.projects, hostedDatabase.projects, "updatedAt")),
     prompts: sortByCreatedAtDesc(mergeByCreated(localDatabase.prompts, hostedDatabase.prompts)),
     jobs: sortByUpdatedAtDesc(mergeByNewest(localDatabase.jobs, hostedDatabase.jobs, "updatedAt")),
