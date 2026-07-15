@@ -189,6 +189,68 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByLabel("AI + Music complete")).toBeVisible();
   });
 
+  test("runs first-time setup once and keeps saved keys available in Settings", async ({ page }) => {
+    const saved = { openai: false, elevenlabs: false };
+    const valid = { openai: false, elevenlabs: false };
+
+    await page.route("**/api/setup", async (route) => {
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON() as { openaiApiKey?: string; elevenLabsApiKey?: string };
+        if (body.openaiApiKey) saved.openai = true;
+        if (body.elevenLabsApiKey) saved.elevenlabs = true;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          setup: {
+            openai: { status: { state: valid.openai ? "valid" : saved.openai ? "unchecked" : "missing" } },
+            elevenlabs: { status: { state: valid.elevenlabs ? "valid" : saved.elevenlabs ? "unchecked" : "missing" } },
+            youtube: { status: { state: "missing" } }
+          },
+          secrets: { openai: saved.openai, elevenlabs: saved.elevenlabs, youtube: false, youtubeOAuth: false },
+          secretHints: {
+            openai: saved.openai ? "sk-••••1234" : undefined,
+            elevenlabs: saved.elevenlabs ? "••••5678" : undefined
+          }
+        })
+      });
+    });
+    await page.route("**/api/setup/validate", async (route) => {
+      const { provider } = route.request().postDataJSON() as { provider: "openai" | "elevenlabs" };
+      valid[provider] = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: { state: "valid", message: "Key is valid." } })
+      });
+    });
+
+    await page.goto("/dashboard");
+    const dialog = page.getByRole("dialog", { name: "Set up your Velvet studio." });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByLabel("OpenAI API key").fill("sk-test-openai");
+    await dialog.getByRole("button", { name: "Save & Continue" }).click();
+    await expect(dialog.getByText("Connect ElevenLabs")).toBeVisible();
+
+    await dialog.getByLabel("ElevenLabs API key").fill("test-elevenlabs");
+    await dialog.getByRole("button", { name: "Save & Continue" }).click();
+    await expect(dialog.getByText("Connect YouTube")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Log in with YouTube" })).toBeDisabled();
+
+    await dialog.getByRole("button", { name: "Finish later in Settings" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("dialog", { name: "Set up your Velvet studio." })).toHaveCount(0);
+
+    await page.goto("/settings");
+    await expect(page.getByText("Saved key: sk-••••1234")).toBeVisible();
+    await page.getByRole("button", { name: "ElevenLabs", exact: true }).click();
+    await expect(page.getByText("Saved key: ••••5678")).toBeVisible();
+  });
+
   test("builds an editable brief with Prompt Producer", async ({ page }) => {
     await page.route("**/api/prompts/compose", async (route) => {
       await route.fulfill({

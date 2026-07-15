@@ -61,6 +61,7 @@ export function VelvetApp() {
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const [commandOpen, setCommandOpen] = useState(false);
   const [transparentMode, setTransparentMode] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -72,6 +73,22 @@ export function VelvetApp() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!setupOverview.loaded || pathname !== "/dashboard") return;
+    if (setupOverview.isComplete) {
+      window.localStorage.setItem("velvet-onboarding", "complete");
+      setOnboardingOpen(false);
+      return;
+    }
+
+    setOnboardingOpen(!window.localStorage.getItem("velvet-onboarding"));
+  }, [pathname, setupOverview.isComplete, setupOverview.loaded]);
+
+  function dismissOnboarding(completed = false) {
+    window.localStorage.setItem("velvet-onboarding", completed ? "complete" : "dismissed");
+    setOnboardingOpen(false);
+  }
 
   useEffect(() => {
     const desktopMode = navigator.userAgent.includes("Electron");
@@ -112,6 +129,7 @@ export function VelvetApp() {
       </div>
       <BottomPlayer />
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <FirstRunOnboarding open={onboardingOpen} setup={setupOverview} onDismiss={dismissOnboarding} />
       <ToastHost />
     </main>
   );
@@ -145,12 +163,14 @@ type ClientStatus = {
 };
 
 type SetupOverview = {
+  loaded: boolean;
   readyCount: number;
   isComplete: boolean;
   services: Array<{ label: string; ready: boolean }>;
 };
 
 const emptySetupOverview: SetupOverview = {
+  loaded: false,
   readyCount: 0,
   isComplete: false,
   services: [
@@ -173,9 +193,9 @@ function useSetupOverview() {
           { label: "YouTube", ready: Boolean(data.secrets?.youtube && data.setup?.youtube?.status?.state === "connected") }
         ];
         const readyCount = services.filter((service) => service.ready).length;
-        setSetup({ services, readyCount, isComplete: readyCount === services.length });
+        setSetup({ loaded: true, services, readyCount, isComplete: readyCount === services.length });
       })
-      .catch(() => setSetup(emptySetupOverview));
+      .catch(() => setSetup({ ...emptySetupOverview, loaded: true }));
   }, []);
 
   useEffect(() => {
@@ -1185,6 +1205,185 @@ function HistoryWorkspace() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: SetupOverview; onDismiss: (completed?: boolean) => void }) {
+  const [step, setStep] = useState(0);
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [elevenLabsKey, setElevenLabsKey] = useState("");
+  const [youtubeLoginAvailable, setYoutubeLoginAvailable] = useState(false);
+  const [completed, setCompleted] = useState<[boolean, boolean, boolean]>([false, false, false]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("Connect each service once. You can replace credentials later in Settings.");
+
+  useEffect(() => {
+    if (!open) return;
+    const ready: [boolean, boolean, boolean] = [
+      Boolean(setup.services[0]?.ready),
+      Boolean(setup.services[1]?.ready),
+      Boolean(setup.services[2]?.ready)
+    ];
+    setCompleted(ready);
+    setStep(ready[0] ? (ready[1] ? 2 : 1) : 0);
+    fetch("/api/setup", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setYoutubeLoginAvailable(Boolean(data.secrets?.youtubeOAuth)))
+      .catch(() => setYoutubeLoginAvailable(false));
+  }, [open, setup.services]);
+
+  async function saveProvider(provider: "openai" | "elevenlabs") {
+    const index = provider === "openai" ? 0 : 1;
+    const key = provider === "openai" ? openaiKey : elevenLabsKey;
+    if (completed[index] && !key.trim()) {
+      setStep(index + 1);
+      return;
+    }
+    if (!key.trim()) {
+      setMessage(`Enter your ${provider === "openai" ? "OpenAI" : "ElevenLabs"} API key to continue.`);
+      return;
+    }
+
+    setBusy(true);
+    setMessage(`Saving and checking ${provider === "openai" ? "OpenAI" : "ElevenLabs"}...`);
+    try {
+      const response = await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(provider === "openai" ? { openaiApiKey: key } : { elevenLabsApiKey: key })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The encrypted setup could not be saved.");
+
+      const validationResults = new Map<string, ClientStatus>();
+      for (const savedProvider of (["openai", "elevenlabs"] as const).filter((name) => data.secrets?.[name])) {
+        const validation = await fetch("/api/setup/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: savedProvider })
+        });
+        const result = await validation.json();
+        validationResults.set(savedProvider, result.status ?? { state: "invalid", message: "Provider check failed." });
+      }
+
+      const providerStatus = validationResults.get(provider);
+      if (providerStatus?.state !== "valid") throw new Error(providerStatus?.message ?? "That API key could not be verified.");
+
+      setCompleted((current) => current.map((value, currentIndex) => currentIndex === index ? true : value) as [boolean, boolean, boolean]);
+      if (provider === "openai") setOpenaiKey("");
+      else setElevenLabsKey("");
+      window.dispatchEvent(new Event("velvet:setup-updated"));
+      setMessage(`${provider === "openai" ? "OpenAI" : "ElevenLabs"} is connected and saved in Settings.`);
+      setStep(index + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The API key could not be verified.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function connectYouTubeAccount() {
+    if (completed[2]) {
+      onDismiss(true);
+      return;
+    }
+    if (!youtubeLoginAvailable) {
+      setMessage("Google sign-in needs one-time app-owner configuration. Finish later in Settings after it is enabled.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("Finish signing in with your Google account. Velvet will connect automatically.");
+    window.open("/api/youtube/login", "_blank", "noopener,noreferrer");
+
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      try {
+        const response = await fetch("/api/setup", { cache: "no-store" });
+        const data = await response.json();
+        if (data.setup?.youtube?.status?.state !== "connected") continue;
+
+        setCompleted((current) => [current[0], current[1], true]);
+        setMessage(data.setup.youtube.status.message ?? "YouTube connected successfully.");
+        window.dispatchEvent(new Event("velvet:setup-updated"));
+        setBusy(false);
+        onDismiss(true);
+        return;
+      } catch {
+        // Keep waiting while the system browser completes Google authorization.
+      }
+    }
+
+    setBusy(false);
+    setMessage("YouTube sign-in was not completed. You can retry here or finish later in Settings.");
+  }
+
+  const steps = [
+    { label: "OpenAI", detail: "Planning and artwork" },
+    { label: "ElevenLabs", detail: "Music generation" },
+    { label: "YouTube", detail: "Publishing" }
+  ];
+
+  return (
+    <AnimatePresence>
+      {open ? (
+        <motion.div className="fixed inset-0 z-[180] grid place-items-center bg-[rgba(5,4,10,0.68)] p-5 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.section role="dialog" aria-modal="true" aria-labelledby="first-run-title" className="prompt-producer-dialog panel w-full max-w-[760px] overflow-visible rounded-lg p-5" initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.99 }} transition={{ duration: 0.2, ease: "easeOut" }}>
+            <header className="flex items-start justify-between gap-5 border-b border-[var(--border)] pb-4">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--rose-soft)]">First-time setup</div>
+                <h2 id="first-run-title" className="mt-1 font-serif text-[30px] leading-tight text-white">Set up your Velvet studio.</h2>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">One guided pass. Everything remains editable in Settings.</p>
+              </div>
+              <div className="text-right text-xs text-[var(--text-muted)]"><span className="text-lg font-semibold text-white">{step + 1}</span> / 3</div>
+            </header>
+
+            <div className="mt-4 grid grid-cols-3 gap-2" aria-label="Onboarding progress">
+              {steps.map((item, index) => (
+                <button key={item.label} type="button" onClick={() => index <= step || completed[index] ? setStep(index) : undefined} className={`h-14 rounded-lg border px-3 text-left ${index === step ? "border-[var(--border-active)] bg-white/[0.07]" : "border-[var(--border)] bg-white/[0.025]"}`}>
+                  <span className="flex items-center gap-2 text-xs font-medium text-white">{completed[index] ? <Check className="h-3.5 w-3.5 text-[var(--success)]" /> : <span className="tabular text-[var(--rose-soft)]">0{index + 1}</span>}{item.label}</span>
+                  <span className="mt-1 block truncate text-[10px] text-[var(--text-muted)]">{item.detail}</span>
+                </button>
+              ))}
+            </div>
+
+            <motion.div key={step} className="mt-5 min-h-[190px]" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.16 }}>
+              {step === 0 ? (
+                <div>
+                  <div className="flex items-center gap-3"><KeyRound className="h-5 w-5 text-[var(--rose-soft)]" /><div><h3 className="text-base font-medium">Connect OpenAI</h3><p className="text-xs text-[var(--text-muted)]">Creates blueprints, prompts, artwork direction, and publishing metadata.</p></div></div>
+                  <div className="mt-4 max-w-xl"><Field label="OpenAI API key" placeholder={completed[0] ? "Already connected - enter a new key to replace it" : "sk-..."} secret value={openaiKey} onChange={setOpenaiKey} help="Create a project API key for Velvet." helpResource={{ href: "https://platform.openai.com/api-keys", linkLabel: "Open OpenAI API keys", steps: "Sign in, select your project, choose Create new secret key, then copy it immediately." }} /></div>
+                </div>
+              ) : step === 1 ? (
+                <div>
+                  <div className="flex items-center gap-3"><Music2 className="h-5 w-5 text-[var(--rose-soft)]" /><div><h3 className="text-base font-medium">Connect ElevenLabs</h3><p className="text-xs text-[var(--text-muted)]">Generates music only after you approve the track prompts.</p></div></div>
+                  <div className="mt-4 max-w-xl"><Field label="ElevenLabs API key" placeholder={completed[1] ? "Already connected - enter a new key to replace it" : "Enter API key"} secret value={elevenLabsKey} onChange={setElevenLabsKey} help="Create an ElevenLabs key with access to music features." helpResource={{ href: "https://elevenlabs.io/app/developers/api-keys", linkLabel: "Open ElevenLabs API keys", steps: "Sign in, open Developers, choose API Keys, then create and copy a key." }} /></div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-3"><Youtube className="h-5 w-5 text-[#ff4965]" /><div><h3 className="text-base font-medium">Connect YouTube</h3><p className="text-xs text-[var(--text-muted)]">Choose your Google account in the system browser. Velvet never sees your password.</p></div></div>
+                  <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/15 p-4 text-xs leading-5 text-[var(--text-secondary)]">
+                    {completed[2] ? "YouTube is already connected." : youtubeLoginAvailable ? "Google will ask permission to identify your channel and upload videos. New uploads remain private by default." : "Google sign-in is waiting for the app owner's OAuth client ID. You can finish this step later in Settings."}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+
+            <div className={`rounded-lg border px-3 py-2 text-xs ${message.toLowerCase().includes("could not") || message.toLowerCase().includes("needs") ? "border-[rgba(213,143,154,0.3)] bg-[rgba(213,143,154,0.07)]" : "border-[var(--border)] bg-white/[0.025]"}`} aria-live="polite">{message}</div>
+
+            <footer className="mt-4 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => onDismiss(false)} disabled={busy} className="h-9 rounded-lg px-3 text-xs text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white disabled:opacity-40">Finish later in Settings</button>
+              <div className="flex items-center gap-2">
+                {step > 0 ? <button type="button" onClick={() => setStep((current) => current - 1)} disabled={busy} className="h-9 rounded-lg border border-[var(--border)] px-4 text-xs text-[var(--text-secondary)] disabled:opacity-40">Back</button> : null}
+                <button type="button" onClick={() => step === 0 ? saveProvider("openai") : step === 1 ? saveProvider("elevenlabs") : connectYouTubeAccount()} disabled={busy || (step === 2 && !youtubeLoginAvailable && !completed[2])} className="glass-primary flex h-9 min-w-36 items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-45">
+                  {busy ? "Checking..." : step === 0 || step === 1 ? (completed[step] ? "Continue" : "Save & Continue") : completed[2] ? "Finish setup" : "Log in with YouTube"}
+                  {!busy ? <ArrowRight className="h-3.5 w-3.5" /> : null}
+                </button>
+              </div>
+            </footer>
+          </motion.section>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }
 
