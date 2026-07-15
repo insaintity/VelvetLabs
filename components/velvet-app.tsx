@@ -138,6 +138,8 @@ export function VelvetApp() {
 type SetupForm = {
   openaiApiKey: string;
   elevenLabsApiKey: string;
+  googleClientId: string;
+  googleClientSecret: string;
   planningModel: string;
   imageModel: string;
   musicModel: string;
@@ -1288,7 +1290,8 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
       return;
     }
     if (!youtubeLoginAvailable) {
-      setMessage("Google sign-in needs one-time app-owner configuration. Finish later in Settings after it is enabled.");
+      onDismiss(false);
+      window.location.assign("/settings?setup=youtube");
       return;
     }
 
@@ -1374,8 +1377,8 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
               <button type="button" onClick={() => onDismiss(false)} disabled={busy} className="h-9 rounded-lg px-3 text-xs text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-white disabled:opacity-40">Finish later in Settings</button>
               <div className="flex items-center gap-2">
                 {step > 0 ? <button type="button" onClick={() => setStep((current) => current - 1)} disabled={busy} className="h-9 rounded-lg border border-[var(--border)] px-4 text-xs text-[var(--text-secondary)] disabled:opacity-40">Back</button> : null}
-                <button type="button" onClick={() => step === 0 ? saveProvider("openai") : step === 1 ? saveProvider("elevenlabs") : connectYouTubeAccount()} disabled={busy || (step === 2 && !youtubeLoginAvailable && !completed[2])} className="glass-primary flex h-9 min-w-36 items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-45">
-                  {busy ? "Checking..." : step === 0 || step === 1 ? (completed[step] ? "Continue" : "Save & Continue") : completed[2] ? "Finish setup" : "Log in with YouTube"}
+                <button type="button" onClick={() => step === 0 ? saveProvider("openai") : step === 1 ? saveProvider("elevenlabs") : connectYouTubeAccount()} disabled={busy} className="glass-primary flex h-9 min-w-36 items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-45">
+                  {busy ? "Checking..." : step === 0 || step === 1 ? (completed[step] ? "Continue" : "Save & Continue") : completed[2] ? "Finish setup" : youtubeLoginAvailable ? "Log in with YouTube" : "Configure YouTube"}
                   {!busy ? <ArrowRight className="h-3.5 w-3.5" /> : null}
                 </button>
               </div>
@@ -1401,6 +1404,8 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [setupForm, setSetupForm] = useState<SetupForm>({
     openaiApiKey: "",
     elevenLabsApiKey: "",
+    googleClientId: "",
+    googleClientSecret: "",
     planningModel: "gpt-4.1",
     imageModel: "gpt-image-1",
     musicModel: "eleven-music",
@@ -1430,7 +1435,9 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const onboardingReadyCount = aiMusicReady ? (youtubeReady ? 3 : 1) : 0;
 
   useEffect(() => {
-    setYoutubeStatus(new URLSearchParams(window.location.search).get("youtube"));
+    const search = new URLSearchParams(window.location.search);
+    setYoutubeStatus(search.get("youtube"));
+    if (search.get("setup") === "youtube") setActiveSetupStep("youtube");
     fetch("/api/setup")
       .then((response) => response.json())
       .then((data) => {
@@ -1544,17 +1551,32 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   }
 
   async function connectYouTube() {
-    if (!youtubeLoginAvailable) {
+    if (!youtubeLoginAvailable && !setupForm.googleClientId.trim()) {
       setSetupSaveState("error");
-      setSetupMessage("Google sign-in is not configured for this Velvet build yet.");
+      setSetupMessage("Add the Google OAuth client ID below, then select Log in with YouTube again.");
       return;
     }
 
     setConnectingYouTube(true);
-    setSetupMessage("Saving YouTube connection details...");
-    if (!await saveSetup(false)) {
-      setConnectingYouTube(false);
-      return;
+    if (!youtubeLoginAvailable) {
+      setSetupSaveState("saving");
+      setSetupMessage("Saving the encrypted Google connection...");
+      try {
+        const response = await fetch("/api/setup/youtube-oauth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: setupForm.googleClientId, clientSecret: setupForm.googleClientSecret })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.configured) throw new Error(data.error ?? "Google sign-in could not be configured.");
+        setYoutubeLoginAvailable(true);
+        setSetupForm((current) => ({ ...current, googleClientId: "", googleClientSecret: "" }));
+      } catch (error) {
+        setConnectingYouTube(false);
+        setSetupSaveState("error");
+        setSetupMessage(error instanceof Error ? error.message : "Google sign-in could not be configured.");
+        return;
+      }
     }
 
     window.open("/api/youtube/login", "_blank", "noopener,noreferrer");
@@ -1723,17 +1745,41 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                 >
                   <button
                     onClick={connectYouTube}
-                    disabled={!youtubeLoginAvailable || connectingYouTube}
-                    title={youtubeLoginAvailable ? "Open Google's secure account sign-in." : "The app owner must configure the Google OAuth client ID once."}
+                    disabled={connectingYouTube}
+                    title="Open Google's secure account sign-in."
                     className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[rgba(255,0,51,0.84)] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.14)] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <Youtube className="h-4 w-4" />
                     {connectingYouTube ? "Waiting for Google..." : "Log in with YouTube"}
                   </button>
+                  {!youtubeLoginAvailable ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label="Google OAuth client ID"
+                        placeholder="...apps.googleusercontent.com"
+                        value={setupForm.googleClientId}
+                        onChange={(value) => updateSetupForm("googleClientId", value)}
+                        help="Create a Desktop app OAuth client for this private Velvet installation."
+                        helpResource={{
+                          href: "https://console.cloud.google.com/apis/credentials",
+                          linkLabel: "Open Google Cloud credentials",
+                          steps: "Enable YouTube Data API v3, configure the OAuth consent screen, choose Create credentials, then OAuth client ID and Desktop app."
+                        }}
+                      />
+                      <Field
+                        label="Google OAuth client secret"
+                        placeholder="Optional for Desktop app clients"
+                        secret
+                        value={setupForm.googleClientSecret}
+                        onChange={(value) => updateSetupForm("googleClientSecret", value)}
+                        help="Usually optional for a Desktop app client. Add it only when Google supplied one for the selected client."
+                      />
+                    </div>
+                  ) : null}
                   <p className="text-xs leading-5 text-[var(--text-muted)]">
                     {youtubeLoginAvailable
                       ? "Your password is entered only on Google. Velvet stores the resulting refresh token encrypted."
-                      : "Google sign-in needs one-time app-owner configuration before this button can be used."}
+                      : "Paste the one-time Google client ID, then select Log in with YouTube. Velvet encrypts it and opens Google's account chooser."}
                     {!youtubeLoginAvailable ? (
                       <HelpTooltip
                         label="How to configure Google sign-in"

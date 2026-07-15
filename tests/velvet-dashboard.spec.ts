@@ -238,7 +238,7 @@ test.describe("Velvet dashboard", () => {
     await dialog.getByLabel("ElevenLabs API key").fill("test-elevenlabs");
     await dialog.getByRole("button", { name: "Save & Continue" }).click();
     await expect(dialog.getByText("Connect YouTube")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Log in with YouTube" })).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Configure YouTube" })).toBeEnabled();
 
     await dialog.getByRole("button", { name: "Finish later in Settings" }).click();
     await expect(dialog).toHaveCount(0);
@@ -296,9 +296,9 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("open Developers", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Log in with YouTube" })).toBeVisible();
-    await expect(page.getByLabel("Google OAuth client ID")).toHaveCount(0);
-    await expect(page.getByLabel("Google OAuth client secret")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Log in with YouTube" })).toBeEnabled();
+    await expect(page.getByLabel("Google OAuth client ID")).toBeVisible();
+    await expect(page.getByLabel("Google OAuth client secret")).toBeVisible();
     await page.getByRole("button", { name: "03 Advanced" }).click();
     await page.getByText("Database and media settings").click();
     await expect(page.getByLabel("Storage endpoint")).toBeVisible();
