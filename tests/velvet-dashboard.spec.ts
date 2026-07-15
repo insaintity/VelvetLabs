@@ -224,8 +224,14 @@ test.describe("Velvet dashboard", () => {
     await expect(page.locator(".setup-progress-count")).toHaveCSS("font-size", "28px");
     await expect(page.locator(".setup-progress-count span")).toHaveCSS("font-size", "28px");
     await expect(page.getByRole("heading", { name: "ChatGPT / OpenAI" })).toBeVisible();
+    await page.getByTitle("How to get OpenAI API key").hover();
+    await expect(page.getByRole("link", { name: "Open OpenAI API keys" })).toHaveAttribute("href", "https://platform.openai.com/api-keys");
+    await expect(page.getByText("Create new secret key", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "ElevenLabs" }).click();
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
+    await page.getByTitle("How to get ElevenLabs API key").hover();
+    await expect(page.getByRole("link", { name: "Open ElevenLabs API keys" })).toHaveAttribute("href", "https://elevenlabs.io/app/developers/api-keys");
+    await expect(page.getByText("open Developers", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Log in with YouTube" })).toBeVisible();

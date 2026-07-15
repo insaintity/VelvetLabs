@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Clapperboard,
   Database,
   Download,
+  ExternalLink,
   FileText,
   Focus,
   Globe2,
@@ -1473,6 +1474,11 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                     value={setupForm.openaiApiKey}
                     onChange={(value) => updateSetupForm("openaiApiKey", value)}
                     help="Used for song and album planning, prompt rewriting, artwork prompts, and metadata."
+                    helpResource={{
+                      href: "https://platform.openai.com/api-keys",
+                      linkLabel: "Open OpenAI API keys",
+                      steps: "Sign in, select your project, choose Create new secret key, then copy it immediately. The full key is shown only once."
+                    }}
                   />
                   {savedKeyHints.openai ? <p className="text-xs text-[var(--success)]">Saved key: {savedKeyHints.openai}</p> : null}
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet chooses the planning and image models automatically.</p>
@@ -1492,6 +1498,11 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                     value={setupForm.elevenLabsApiKey}
                     onChange={(value) => updateSetupForm("elevenLabsApiKey", value)}
                     help="Used only after you approve track prompts."
+                    helpResource={{
+                      href: "https://elevenlabs.io/app/developers/api-keys",
+                      linkLabel: "Open ElevenLabs API keys",
+                      steps: "Sign in, open Developers, choose API Keys, then create and copy a key. Allow the music features Velvet uses."
+                    }}
                   />
                   {savedKeyHints.elevenlabs ? <p className="text-xs text-[var(--success)]">Saved key: {savedKeyHints.elevenlabs}</p> : null}
                   <p className="setup-card-note text-xs leading-5 text-[var(--text-muted)]">Velvet uses the default ElevenLabs music model and reads quota usage from the key.</p>
@@ -1524,6 +1535,17 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                     {youtubeLoginAvailable
                       ? "Your password is entered only on Google. Velvet stores the resulting refresh token encrypted."
                       : "Google sign-in needs one-time app-owner configuration before this button can be used."}
+                    {!youtubeLoginAvailable ? (
+                      <HelpTooltip
+                        label="How to configure Google sign-in"
+                        help="This is a one-time app-owner setting, not something every Velvet user enters."
+                        resource={{
+                          href: "https://console.cloud.google.com/apis/credentials",
+                          linkLabel: "Open Google Cloud credentials",
+                          steps: "Enable YouTube Data API v3, configure the OAuth consent screen, then create an OAuth client for Velvet."
+                        }}
+                      />
+                    ) : null}
                   </p>
                 </SetupCard>
                 <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
@@ -1882,6 +1904,7 @@ function Field({
   placeholder,
   secret = false,
   help,
+  helpResource,
   value,
   onChange
 }: {
@@ -1889,27 +1912,65 @@ function Field({
   placeholder: string;
   secret?: boolean;
   help?: string;
+  helpResource?: HelpResource;
   value?: string;
   onChange?: (value: string) => void;
 }) {
+  const inputId = useId();
+
   return (
-    <label className="block text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+    <div className="block text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
       <span className="flex items-center gap-1.5">
+        <label htmlFor={inputId}>
         {label}
+        </label>
         {help ? (
-          <span title={help} aria-label={help}>
-            <HelpCircle className="h-3.5 w-3.5 text-[var(--rose-soft)]" aria-hidden="true" />
-          </span>
+          <HelpTooltip label={`How to get ${label}`} help={help} resource={helpResource} />
         ) : null}
       </span>
       <input
+        id={inputId}
         type={secret ? "password" : "text"}
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         className="mt-1.5 h-8 w-full rounded-lg border border-[var(--border)] bg-black/15 px-3 text-xs normal-case tracking-normal text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]"
         placeholder={placeholder}
       />
-    </label>
+    </div>
+  );
+}
+
+type HelpResource = {
+  href: string;
+  linkLabel: string;
+  steps: string;
+};
+
+function HelpTooltip({ label, help, resource }: { label: string; help: string; resource?: HelpResource }) {
+  const tooltipId = useId();
+
+  return (
+    <span className="group/help relative inline-flex normal-case tracking-normal">
+      <button type="button" title={label} aria-label="Open help tooltip" aria-describedby={tooltipId} className="grid h-5 w-5 place-items-center rounded text-[var(--rose-soft)] hover:bg-white/[0.07] hover:text-white focus-visible:bg-white/[0.07]">
+        <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="pointer-events-none invisible absolute left-0 top-6 z-[90] w-72 translate-y-1 rounded-lg border border-[var(--border-hover)] bg-[#181421] p-3 text-left text-xs leading-5 text-[var(--text-secondary)] opacity-0 shadow-[0_18px_50px_rgba(0,0,0,0.48)] transition duration-150 group-hover/help:pointer-events-auto group-hover/help:visible group-hover/help:translate-y-0 group-hover/help:opacity-100 group-focus-within/help:pointer-events-auto group-focus-within/help:visible group-focus-within/help:translate-y-0 group-focus-within/help:opacity-100"
+      >
+        <span className="block">{help}</span>
+        {resource ? (
+          <>
+            <span className="mt-2 block text-[var(--text-muted)]">{resource.steps}</span>
+            <a href={resource.href} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1.5 font-medium text-[var(--rose-soft)] hover:text-white">
+              {resource.linkLabel}
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          </>
+        ) : null}
+      </span>
+    </span>
   );
 }
 
