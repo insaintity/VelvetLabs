@@ -86,7 +86,7 @@ html.transparent-mode body::after {
 }
 
 html.transparent-mode .panel {
-  background: rgba(17, 14, 26, 0.28);
+  background: rgba(17, 14, 26, 0.18);
   backdrop-filter: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.055),
@@ -94,15 +94,15 @@ html.transparent-mode .panel {
 }
 
 html.transparent-mode .studio-shell {
-  background: rgba(14, 12, 22, 0.14);
+  background: rgba(14, 12, 22, 0.04);
 }
 
 html.transparent-mode .studio-sidebar {
-  background: rgba(14, 12, 22, 0.24);
+  background: rgba(14, 12, 22, 0.14);
 }
 
 html.transparent-mode .studio-topbar {
-  background: rgba(14, 12, 22, 0.18);
+  background: rgba(14, 12, 22, 0.08);
   backdrop-filter: none;
 }
 
@@ -165,6 +165,48 @@ select:focus-visible {
 
 .studio-content:has([aria-modal="true"]) {
   z-index: 60;
+}
+
+.window-drag-edge {
+  pointer-events: none;
+  position: fixed;
+  z-index: 100;
+}
+
+html.desktop-mode .window-drag-edge {
+  app-region: drag;
+  -webkit-app-region: drag;
+  pointer-events: auto;
+}
+
+.window-drag-edge-top,
+.window-drag-edge-bottom {
+  height: 10px;
+  left: 0;
+  right: 0;
+}
+
+.window-drag-edge-top {
+  top: 0;
+}
+
+.window-drag-edge-bottom {
+  bottom: 0;
+}
+
+.window-drag-edge-left,
+.window-drag-edge-right {
+  bottom: 10px;
+  top: 10px;
+  width: 10px;
+}
+
+.window-drag-edge-left {
+  left: 0;
+}
+
+.window-drag-edge-right {
+  right: 0;
 }
 
 .studio-sidebar {
@@ -255,28 +297,6 @@ input[aria-label="Track position"] {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
   background-size: 220% 100%;
   animation: studio-shimmer 1.5s ease-in-out infinite;
-}
-
-.compact-density .studio-track-row {
-  padding-top: 5px;
-  padding-bottom: 5px;
-}
-
-.compact-density .studio-track-row p {
-  display: none;
-}
-
-.compact-density .new-media-workspace {
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-
-.compact-density .new-media-panel {
-  padding: 18px;
-}
-
-.compact-density .new-media-panel textarea {
-  min-height: 150px;
 }
 
 @keyframes studio-shimmer {

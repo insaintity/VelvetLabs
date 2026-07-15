@@ -78,6 +78,30 @@ test.describe("Velvet dashboard", () => {
     });
   });
 
+  test("reserves a ten-pixel desktop drag perimeter without blocking the browser", async ({ page }) => {
+    await page.goto("/dashboard");
+    const edges = page.locator(".window-drag-edge");
+    await expect(edges).toHaveCount(4);
+    await expect(edges.first()).toHaveCSS("pointer-events", "none");
+
+    const regions = await page.evaluate(() => {
+      document.documentElement.classList.add("desktop-mode");
+      return [...document.querySelectorAll<HTMLElement>(".window-drag-edge")].map((edge) => {
+        const rect = edge.getBoundingClientRect();
+        const style = getComputedStyle(edge);
+        return { width: rect.width, height: rect.height, drag: style.getPropertyValue("-webkit-app-region"), pointerEvents: style.pointerEvents };
+      });
+    });
+    const viewport = page.viewportSize()!;
+
+    expect(regions).toEqual([
+      { width: viewport.width, height: 10, drag: "drag", pointerEvents: "auto" },
+      { width: 10, height: viewport.height - 20, drag: "drag", pointerEvents: "auto" },
+      { width: viewport.width, height: 10, drag: "drag", pointerEvents: "auto" },
+      { width: 10, height: viewport.height - 20, drag: "drag", pointerEvents: "auto" }
+    ]);
+  });
+
   test("renders the guided new-project flow", async ({ page }) => {
     await page.goto("/projects/new");
 
@@ -93,8 +117,10 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "Display options" }).click();
     const displayMenu = page.getByRole("menu", { name: "Display options" });
     await expect(displayMenu).toBeVisible();
-    await displayMenu.getByRole("menuitemradio", { name: "Compact" }).click();
-    await expect(page.locator("main")).toHaveClass(/compact-density/);
+    await expect(displayMenu.getByRole("menuitemradio")).toHaveCount(0);
+    await displayMenu.getByRole("menuitemcheckbox", { name: "Wallpaper mode" }).click();
+    await expect(page.locator("html")).toHaveClass(/transparent-mode/);
+    await expect(page.locator(".studio-shell")).toHaveCSS("background-color", "rgba(14, 12, 22, 0.04)");
   });
 
   test("builds an editable brief with Prompt Producer", async ({ page }) => {
