@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const { execFile, spawn } = require("node:child_process");
 const { createWriteStream } = require("node:fs");
 const net = require("node:net");
@@ -32,6 +32,18 @@ app.whenReady().then(startDesktopApp).catch((error) => {
 
 app.on("before-quit", stopServices);
 app.on("window-all-closed", () => app.quit());
+
+ipcMain.on("velvet:window-action", (event, action) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) return;
+
+  if (action === "minimize") window.minimize();
+  if (action === "maximize") {
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
+  }
+  if (action === "close") window.close();
+});
 
 async function startDesktopApp() {
   const port = await findAvailablePort();
@@ -73,7 +85,12 @@ async function startDesktopApp() {
     autoHideMenuBar: true,
     show: false,
     icon: path.join(resourcesRoot, "velvet-icon.png"),
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+      sandbox: true
+    }
   });
 
   const localOrigin = `http://127.0.0.1:${port}`;

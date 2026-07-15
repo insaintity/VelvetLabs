@@ -20,6 +20,8 @@ import {
   ListMusic,
   ListRestart,
   LogOut,
+  Maximize2,
+  Minus,
   Music2,
   PanelRight,
   Pause,
@@ -36,6 +38,7 @@ import {
   Upload,
   Volume2,
   WandSparkles,
+  X,
   Youtube
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -421,8 +424,29 @@ function TopBar({ pageTitle, setup, onOpenCommand, transparentMode, onToggleTran
           {setup.isComplete ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
           <span className="hidden sm:inline">{setup.isComplete ? "New Media" : "Setup Required"}</span>
         </Link>
+        <WindowControls />
       </div>
     </header>
+  );
+}
+
+function WindowControls() {
+  function run(action: "minimize" | "maximize" | "close") {
+    window.velvetDesktop?.windowAction(action);
+  }
+
+  return (
+    <div role="group" className="window-controls ml-1 shrink-0 items-center gap-1 border-l border-[var(--border)] pl-3" aria-label="Window controls">
+      <button type="button" onClick={() => run("minimize")} title="Minimize" aria-label="Minimize window" className="window-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
+        <Minus className="h-4 w-4" />
+      </button>
+      <button type="button" onClick={() => run("maximize")} title="Maximize or restore" aria-label="Maximize or restore window" className="window-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
+        <Maximize2 className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" onClick={() => run("close")} title="Close" aria-label="Close window" className="window-control window-control-close grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 

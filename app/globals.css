@@ -225,6 +225,28 @@ html.desktop-mode .window-drag-edge {
   -webkit-app-region: no-drag;
 }
 
+.window-controls {
+  display: none;
+}
+
+html.desktop-mode .window-controls {
+  display: flex;
+}
+
+.window-control {
+  border: 1px solid transparent;
+}
+
+.window-control:hover {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.window-control-close:hover {
+  border-color: rgba(213, 143, 154, 0.5);
+  background: rgba(161, 54, 72, 0.42);
+}
+
 .glass-control {
   border: 1px solid var(--border);
   background: rgba(20, 16, 31, 0.28);
