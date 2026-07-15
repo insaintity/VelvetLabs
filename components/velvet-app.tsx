@@ -119,8 +119,6 @@ export function VelvetApp() {
 type SetupForm = {
   openaiApiKey: string;
   elevenLabsApiKey: string;
-  googleClientId: string;
-  googleClientSecret: string;
   planningModel: string;
   imageModel: string;
   musicModel: string;
@@ -1191,6 +1189,8 @@ function HistoryWorkspace() {
 
 function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
+  const [youtubeLoginAvailable, setYoutubeLoginAvailable] = useState(false);
+  const [connectingYouTube, setConnectingYouTube] = useState(false);
   const [activeSetupStep, setActiveSetupStep] = useState<"services" | "youtube" | "review">("services");
   const [activeService, setActiveService] = useState<"openai" | "elevenlabs">("openai");
   const [setupSaveState, setSetupSaveState] = useState<"idle" | "saving" | "success" | "error">("idle");
@@ -1201,8 +1201,6 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [setupForm, setSetupForm] = useState<SetupForm>({
     openaiApiKey: "",
     elevenLabsApiKey: "",
-    googleClientId: "",
-    googleClientSecret: "",
     planningModel: "gpt-4.1",
     imageModel: "gpt-image-1",
     musicModel: "eleven-music",
@@ -1248,6 +1246,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
           openai: data.secretHints?.openai,
           elevenlabs: data.secretHints?.elevenlabs
         });
+        setYoutubeLoginAvailable(Boolean(data.secrets?.youtubeOAuth));
         setSetupForm((current) => ({
           ...current,
           planningModel: setup.openai?.planningModel ?? current.planningModel,
@@ -1345,8 +1344,45 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   }
 
   async function connectYouTube() {
+    if (!youtubeLoginAvailable) {
+      setSetupSaveState("error");
+      setSetupMessage("Google sign-in is not configured for this Velvet build yet.");
+      return;
+    }
+
+    setConnectingYouTube(true);
     setSetupMessage("Saving YouTube connection details...");
-    if (await saveSetup(false)) window.location.assign("/api/youtube/login");
+    if (!await saveSetup(false)) {
+      setConnectingYouTube(false);
+      return;
+    }
+
+    window.open("/api/youtube/login", "_blank", "noopener,noreferrer");
+    setSetupSaveState("saving");
+    setSetupMessage("Finish signing in with your Google account. Velvet will connect automatically.");
+
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      try {
+        const response = await fetch("/api/setup", { cache: "no-store" });
+        const data = await response.json();
+        if (data.setup?.youtube?.status?.state !== "connected") continue;
+
+        setProviderStatus((current) => ({ ...current, youtube: data.setup.youtube.status }));
+        setSetupSaveState("success");
+        setSetupMessage(data.setup.youtube.status.message ?? "YouTube connected successfully.");
+        setActiveSetupStep("review");
+        window.dispatchEvent(new Event("velvet:setup-updated"));
+        setConnectingYouTube(false);
+        return;
+      } catch {
+        // Keep waiting while the external browser completes authorization.
+      }
+    }
+
+    setConnectingYouTube(false);
+    setSetupSaveState("error");
+    setSetupMessage("YouTube sign-in was not completed. Use Log in with YouTube to try again.");
   }
 
   async function syncDatabase() {
@@ -1472,23 +1508,22 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
                 <SetupCard
                   icon={<Youtube className="h-5 w-5" />}
                   title="YouTube"
-                  body="Connect with Google OAuth. Velvet will request permission to upload videos and read channel identity."
+                  body="Choose your Google account and approve YouTube access in Google's secure sign-in page."
                   status={formatProviderStatus(providerStatus.youtube, setup.services[2]?.ready)}
                 >
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Google OAuth client ID" placeholder="...apps.googleusercontent.com" value={setupForm.googleClientId} onChange={(value) => updateSetupForm("googleClientId", value)} help="Create a Desktop app OAuth client in Google Cloud." />
-                    <Field label="Google OAuth client secret" placeholder="Enter secret" secret value={setupForm.googleClientSecret} onChange={(value) => updateSetupForm("googleClientSecret", value)} help="Encrypted locally and never returned to the browser." />
-                  </div>
                   <button
                     onClick={connectYouTube}
-                    title="Connects your channel through Google OAuth. Velvet never asks for your YouTube password."
-                    className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[rgba(255,0,51,0.84)] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.14)]"
+                    disabled={!youtubeLoginAvailable || connectingYouTube}
+                    title={youtubeLoginAvailable ? "Open Google's secure account sign-in." : "The app owner must configure the Google OAuth client ID once."}
+                    className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[rgba(255,0,51,0.84)] px-4 text-sm font-medium text-white shadow-[0_10px_26px_rgba(255,0,51,0.14)] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <Youtube className="h-4 w-4" />
-                    Login to YouTube
+                    {connectingYouTube ? "Waiting for Google..." : "Log in with YouTube"}
                   </button>
                   <p className="text-xs leading-5 text-[var(--text-muted)]">
-                    Create a Desktop app OAuth client in Google Cloud. Velvet handles its local redirect address automatically.
+                    {youtubeLoginAvailable
+                      ? "Your password is entered only on Google. Velvet stores the resulting refresh token encrypted."
+                      : "Google sign-in needs one-time app-owner configuration before this button can be used."}
                   </p>
                 </SetupCard>
                 <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] p-3">
@@ -1621,13 +1656,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
 function YouTubeStatusNotice({ status }: { status: string }) {
   const message =
     status === "missing_config"
-      ? "Enter your Google OAuth client ID and secret in YouTube setup, then try again. Velvet supplies the redirect URI automatically."
+      ? "Google sign-in is not configured for this Velvet build. The app owner needs to add its Google OAuth client ID once."
       : status === "authorized_pending_storage"
         ? "YouTube authorized successfully. Token exchange and encrypted storage are the next backend step."
         : status === "connected"
           ? "YouTube connected successfully. Refresh token stored encrypted."
           : status === "token_exchange_failed"
-            ? "YouTube authorized, but token exchange failed. Check the OAuth client and redirect URI."
+            ? "YouTube authorized, but Google could not finish the secure token exchange. Please try again."
         : status === "invalid_state"
           ? "YouTube login could not be verified. Please try again."
           : "YouTube login was not completed.";

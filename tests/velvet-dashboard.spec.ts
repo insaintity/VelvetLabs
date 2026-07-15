@@ -228,7 +228,9 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("heading", { name: "ElevenLabs" })).toBeVisible();
     await page.getByRole("button", { name: "02 YouTube" }).click();
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Login to YouTube" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log in with YouTube" })).toBeVisible();
+    await expect(page.getByLabel("Google OAuth client ID")).toHaveCount(0);
+    await expect(page.getByLabel("Google OAuth client secret")).toHaveCount(0);
     await page.getByRole("button", { name: "03 Advanced" }).click();
     await page.getByText("Database and media settings").click();
     await expect(page.getByLabel("Storage endpoint")).toBeVisible();
@@ -250,7 +252,7 @@ test.describe("Velvet dashboard", () => {
 
     await expect(page).toHaveURL(/\/settings\?youtube=missing_config/);
     await page.getByRole("button", { name: "02 YouTube" }).click();
-    await expect(page.getByText("Enter your Google OAuth client ID and secret")).toBeVisible();
+    await expect(page.getByText("Google sign-in is not configured for this Velvet build.")).toBeVisible();
   });
 
   test("keeps onboarding step labels inside their boxes", async ({ page }) => {

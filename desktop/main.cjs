@@ -95,7 +95,7 @@ async function startDesktopApp() {
 
   const localOrigin = `http://127.0.0.1:${port}`;
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(localOrigin)) shell.openExternal(url);
+    if (url.startsWith(`${localOrigin}/api/youtube/login`) || !url.startsWith(localOrigin)) shell.openExternal(url);
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {

@@ -7,26 +7,28 @@ export async function getYouTubeOAuthConfig(fallbackRedirectUri?: string) {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || (await readSecret("googleClientSecret"));
   const redirectUri = process.env.YOUTUBE_REDIRECT_URI || fallbackRedirectUri;
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !redirectUri) {
     throw new Error("YouTube OAuth is not configured.");
   }
 
   return { clientId, clientSecret, redirectUri };
 }
 
-export async function exchangeYouTubeCode(code: string, fallbackRedirectUri?: string) {
+export async function exchangeYouTubeCode(code: string, codeVerifier: string, fallbackRedirectUri?: string) {
   const { clientId, clientSecret, redirectUri } = await getYouTubeOAuthConfig(fallbackRedirectUri);
+  const body = new URLSearchParams({
+    code,
+    client_id: clientId,
+    code_verifier: codeVerifier,
+    redirect_uri: redirectUri,
+    grant_type: "authorization_code"
+  });
+  if (clientSecret) body.set("client_secret", clientSecret);
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code"
-    })
+    body
   });
 
   if (!response.ok) {
@@ -40,17 +42,18 @@ export async function refreshYouTubeAccessToken(refreshToken: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID || (await readSecret("googleClientId"));
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || (await readSecret("googleClientSecret"));
 
-  if (!clientId || !clientSecret) throw new Error("YouTube OAuth is not configured.");
+  if (!clientId) throw new Error("YouTube OAuth is not configured.");
+  const body = new URLSearchParams({
+    client_id: clientId,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token"
+  });
+  if (clientSecret) body.set("client_secret", clientSecret);
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token"
-    })
+    body
   });
 
   if (!response.ok) {

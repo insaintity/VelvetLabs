@@ -27,4 +27,16 @@ describe("YouTube OAuth configuration", () => {
       redirectUri: "https://velvet.example/api/youtube/callback"
     });
   });
+
+  it("supports a public desktop client with PKCE and no client secret", async () => {
+    vi.stubEnv("GOOGLE_CLIENT_ID", "public-desktop-client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
+    vi.stubEnv("YOUTUBE_REDIRECT_URI", "");
+
+    await expect(getYouTubeOAuthConfig("http://127.0.0.1:43123/api/youtube/callback")).resolves.toEqual({
+      clientId: "public-desktop-client-id",
+      clientSecret: undefined,
+      redirectUri: "http://127.0.0.1:43123/api/youtube/callback"
+    });
+  });
 });

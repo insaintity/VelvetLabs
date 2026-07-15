@@ -11,21 +11,23 @@ export async function GET(request: NextRequest) {
   const state = url.searchParams.get("state");
   const cookieStore = await cookies();
   const expectedState = cookieStore.get("youtube_oauth_state")?.value || (await readSecret("youtubeOAuthState"));
+  const codeVerifier = await readSecret("youtubeOAuthCodeVerifier");
 
   cookieStore.delete("youtube_oauth_state");
   await deleteSecret("youtubeOAuthState");
+  await deleteSecret("youtubeOAuthCodeVerifier");
 
   if (error) {
     return NextResponse.redirect(new URL(`/settings?youtube=denied&reason=${encodeURIComponent(error)}`, request.url));
   }
 
-  if (!code || !state || !expectedState || state !== expectedState) {
+  if (!code || !state || !expectedState || state !== expectedState || !codeVerifier) {
     return NextResponse.redirect(new URL("/settings?youtube=invalid_state", request.url));
   }
 
   try {
     const redirectUri = new URL("/api/youtube/callback", request.url).toString();
-    const token = await exchangeYouTubeCode(code, redirectUri);
+    const token = await exchangeYouTubeCode(code, codeVerifier, redirectUri);
     if (token.refresh_token) {
       await saveSecret("youtubeRefreshToken", token.refresh_token);
     }

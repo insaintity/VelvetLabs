@@ -12,12 +12,11 @@ function maskCredential(value?: string) {
 }
 
 async function getSecretSummary(setup?: SetupRecord) {
-  const [openai, elevenlabs, youtube, googleClientId, googleClientSecret, database, storage] = await Promise.all([
+  const [openai, elevenlabs, youtube, googleClientId, database, storage] = await Promise.all([
     readSecret("openai"),
     readSecret("elevenlabs"),
     hasSecret("youtubeRefreshToken"),
     hasSecret("googleClientId"),
-    hasSecret("googleClientSecret"),
     hasSecret("databaseUrl"),
     getStorageConfig(setup)
   ]);
@@ -27,7 +26,7 @@ async function getSecretSummary(setup?: SetupRecord) {
       openai: Boolean(openai),
       elevenlabs: Boolean(elevenlabs),
       youtube,
-      youtubeOAuth: googleClientId && googleClientSecret,
+      youtubeOAuth: googleClientId,
       database,
       storage: Boolean(storage)
     },
@@ -78,8 +77,6 @@ export async function POST(request: Request) {
 
   await saveSecret("openai", body.openaiApiKey ?? "");
   await saveSecret("elevenlabs", body.elevenLabsApiKey ?? "");
-  await saveSecret("googleClientId", body.googleClientId ?? "");
-  await saveSecret("googleClientSecret", body.googleClientSecret ?? "");
   await saveSecret("databaseUrl", body.databaseUrl ?? "");
   await saveSecret("storageAccessKeyId", body.storageAccessKeyId ?? "");
   await saveSecret("storageSecretAccessKey", body.storageSecretAccessKey ?? "");

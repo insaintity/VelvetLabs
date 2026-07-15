@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { getYouTubeOAuthConfig } from "@/lib/server/providers/youtube";
 import { saveSecret } from "@/lib/server/secrets";
 
@@ -19,7 +19,10 @@ export async function GET(request: Request) {
   }
 
   const state = randomBytes(24).toString("hex");
+  const codeVerifier = randomBytes(64).toString("base64url");
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
   await saveSecret("youtubeOAuthState", state);
+  await saveSecret("youtubeOAuthCodeVerifier", codeVerifier);
   const cookieStore = await cookies();
   cookieStore.set("youtube_oauth_state", state, {
     httpOnly: true,
@@ -37,6 +40,8 @@ export async function GET(request: Request) {
     access_type: "offline",
     include_granted_scopes: "true",
     prompt: "consent",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
     state
   });
 

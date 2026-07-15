@@ -32,7 +32,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Supports durable retry, cancellation, deferred upload jobs, and recovery after worker restarts.
 - Runs FFmpeg silence analysis, loudness normalization, fades, and track spacing during release rendering.
 - Exports a portable JSON project archive with prompts, jobs, usage, and upload history.
-- Exchanges YouTube OAuth codes for tokens and stores refresh tokens encrypted.
+- Opens Google account sign-in for YouTube, uses PKCE for the authorization code exchange, and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
 - Provides a fixed, no-scroll studio interface with focus mode, density controls, optional wallpaper transparency, command palette, animated loading states, and reduced-motion support.
 - Protects production as a private single-user studio with a signed, HTTP-only login session.
@@ -161,8 +161,8 @@ Important variables include:
 
 - `OPENAI_API_KEY`
 - `ELEVENLABS_API_KEY`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_CLIENT_ID`, configured once by the app owner so users can choose Log in with YouTube
+- `GOOGLE_CLIENT_SECRET`, optional for public desktop clients using PKCE and required when the selected Google client type requires it
 - `YOUTUBE_REDIRECT_URI` such as `http://localhost:3000/api/youtube/callback` (optional; derived from the current app address when omitted)
 - `FFMPEG_PATH` optional path to `ffmpeg.exe` when FFmpeg is not on PATH
 - `AWS_ENDPOINT_URL`, automatically supplied by Railway Buckets or set to another S3-compatible endpoint
@@ -184,7 +184,7 @@ Important variables include:
 - The local `.velvet/` database and media cache are intended for development and single-user desktop use.
 - Long-running music, render, and upload work is queued for the worker process. Production should run the worker as a managed service/container.
 - The render endpoint creates a render manifest and renders a release MP4 when FFmpeg is available.
-- YouTube upload requires a real rendered MP4 path and configured Google OAuth credentials.
+- YouTube upload requires a real rendered MP4 path and an app-level Google OAuth client. End users connect through Google's account chooser and never enter OAuth developer credentials.
 - User-provided PostgreSQL connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
 - Shared S3-compatible storage is optional locally and required when production processes do not share durable media storage.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.

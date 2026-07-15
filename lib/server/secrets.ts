@@ -8,6 +8,7 @@ type SecretName =
   | "googleClientId"
   | "googleClientSecret"
   | "youtubeOAuthState"
+  | "youtubeOAuthCodeVerifier"
   | "youtubeRefreshToken"
   | "databaseUrl"
   | "storageAccessKeyId"
@@ -22,6 +23,7 @@ const envSecretNames: Record<SecretName, string[]> = {
   googleClientId: ["GOOGLE_CLIENT_ID"],
   googleClientSecret: ["GOOGLE_CLIENT_SECRET"],
   youtubeOAuthState: [],
+  youtubeOAuthCodeVerifier: [],
   youtubeRefreshToken: ["YOUTUBE_REFRESH_TOKEN"],
   databaseUrl: ["DATABASE_URL"],
   storageAccessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID", "STORAGE_ACCESS_KEY_ID"],
