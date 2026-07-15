@@ -44,14 +44,28 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { historyColumns, historyPromptTypes, navItems, safetyDefaults } from "@/lib/app-data";
 import { formatDuration } from "@/lib/time";
 import { usePlayerStore } from "@/store/player-store";
 import { CommandPalette, ProjectArtwork, StatusPill, Waveform } from "@/components/studio-chrome";
-import { CreativeVariantsDrawer, emitToast, GenerationDrawer, ReferenceUploader, SequenceDrawer, ToastHost, TrackAuditionDrawer, type StudioProduction, type StudioTrack } from "@/components/project-studio-tools";
-import { AnalyticsWorkspace, PublishingWorkspace } from "@/components/publishing-workspaces";
-import { PromptProducer } from "@/components/prompt-producer";
+import type { StudioProduction, StudioTrack } from "@/components/project-studio-tools";
+import { emitToast, ToastHost } from "@/components/toast-system";
+import { configureYouTubeOAuth, saveAndValidateSetup, useSetupController, useSetupOverview, waitForYouTubeConnection, type ClientStatus, type SetupOverview } from "@/components/setup-controller";
+import { cachedJson, peekCachedJson, startStudioEvents } from "@/components/data-cache";
+
+const PublishingWorkspace = dynamic(() => import("@/components/publishing-workspaces").then((module) => module.PublishingWorkspace));
+const AnalyticsWorkspace = dynamic(() => import("@/components/publishing-workspaces").then((module) => module.AnalyticsWorkspace));
+const TrackAuditionDrawer = dynamic(() => import("@/components/project-studio-tools").then((module) => module.TrackAuditionDrawer), { ssr: false });
+const CreativeVariantsDrawer = dynamic(() => import("@/components/project-studio-tools").then((module) => module.CreativeVariantsDrawer), { ssr: false });
+const SequenceDrawer = dynamic(() => import("@/components/project-studio-tools").then((module) => module.SequenceDrawer), { ssr: false });
+const GenerationDrawer = dynamic(() => import("@/components/project-studio-tools").then((module) => module.GenerationDrawer), { ssr: false });
+const ReferenceUploader = dynamic(() => import("@/components/project-studio-tools").then((module) => module.ReferenceUploader), { ssr: false });
+const StudioHealth = dynamic(() => import("@/components/studio-health").then((module) => module.StudioHealth), { ssr: false });
+const NewProjectWorkspace = dynamic(() => import("@/components/new-project-workspace").then((module) => module.NewProjectWorkspace), { ssr: false });
+const PromptProducer = dynamic(() => import("@/components/prompt-producer").then((module) => module.PromptProducer), { ssr: false });
+const HistoryWorkspaceScreen = dynamic(() => import("@/components/history-workspace").then((module) => module.HistoryWorkspace));
 
 export function VelvetApp() {
   const pathname = usePathname();
@@ -63,6 +77,7 @@ export function VelvetApp() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   useEffect(() => {
+    startStudioEvents();
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -126,7 +141,7 @@ export function VelvetApp() {
         <section className="panel studio-shell flex min-h-0 flex-col overflow-hidden rounded-2xl lg:rounded-[22px]">
           <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} transparentMode={transparentMode} onToggleTransparency={toggleTransparency} />
           <motion.div key={pathname} className="studio-content relative z-0 flex min-h-0 flex-1" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}>
-            {pathname === "/projects/new" ? <NewProjectFlow /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
+            {pathname === "/projects/new" ? <NewProjectWorkspace /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
           </motion.div>
         </section>
       </div>
@@ -161,56 +176,6 @@ type SetupForm = {
   ffmpegPerRenderMinute: string;
   youtubeUploadPerVideo: string;
 };
-
-type ClientStatus = {
-  state?: string;
-  message?: string;
-};
-
-type SetupOverview = {
-  loaded: boolean;
-  readyCount: number;
-  isComplete: boolean;
-  services: Array<{ label: string; ready: boolean }>;
-};
-
-const emptySetupOverview: SetupOverview = {
-  loaded: false,
-  readyCount: 0,
-  isComplete: false,
-  services: [
-    { label: "ChatGPT", ready: false },
-    { label: "ElevenLabs", ready: false },
-    { label: "YouTube", ready: false }
-  ]
-};
-
-function useSetupOverview() {
-  const [setup, setSetup] = useState<SetupOverview>(emptySetupOverview);
-
-  const refresh = useCallback(() => {
-    fetch("/api/setup")
-      .then((response) => response.json())
-      .then((data) => {
-        const services = [
-          { label: "ChatGPT", ready: Boolean(data.secrets?.openai && data.setup?.openai?.status?.state === "valid") },
-          { label: "ElevenLabs", ready: Boolean(data.secrets?.elevenlabs && data.setup?.elevenlabs?.status?.state === "valid") },
-          { label: "YouTube", ready: Boolean(data.secrets?.youtube && data.setup?.youtube?.status?.state === "connected") }
-        ];
-        const readyCount = services.filter((service) => service.ready).length;
-        setSetup({ loaded: true, services, readyCount, isComplete: readyCount === services.length });
-      })
-      .catch(() => setSetup({ ...emptySetupOverview, loaded: true }));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    window.addEventListener("velvet:setup-updated", refresh);
-    return () => window.removeEventListener("velvet:setup-updated", refresh);
-  }, [refresh]);
-
-  return setup;
-}
 
 type ClientProject = {
   id: string;
@@ -436,23 +401,23 @@ function TopBar({ pageTitle, setup, onOpenCommand, transparentMode, onToggleTran
         {privateAccessEnabled ? <button onClick={signOut} title="Sign out of private studio" aria-label="Sign out of private studio" className="glass-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
           <LogOut className="h-4 w-4" />
         </button> : null}
-        {setup.isComplete ? (
+        {setup.canCreate ? (
           <Link href="/settings" className="glass-control flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-[var(--text-secondary)] transition hover:text-white">
             <KeyRound className="h-4 w-4" />
             <span className="hidden sm:inline">Setup</span>
           </Link>
         ) : null}
         <Link
-          href={setup.isComplete ? "/projects/new" : "/settings"}
-          title={setup.isComplete ? "Create a song or album." : "Complete setup before creating media."}
+          href={setup.canCreate ? "/projects/new" : "/settings"}
+          title={setup.canCreate ? "Create a song or album." : "Connect OpenAI before creating media."}
           className={`flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition ${
-            setup.isComplete
+            setup.canCreate
               ? "glass-primary text-white"
               : "glass-control text-[var(--text-muted)]"
           }`}
         >
-          {setup.isComplete ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-          <span className="hidden sm:inline">{setup.isComplete ? "New Media" : "Setup Required"}</span>
+          {setup.canCreate ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          <span className="hidden sm:inline">{setup.canCreate ? "New Media" : "Connect OpenAI"}</span>
         </Link>
         <WindowControls />
       </div>
@@ -502,20 +467,23 @@ function FreshWorkspace({ pathname, setup }: { pathname: string; setup: SetupOve
   }
 
   if (pathname === "/history") {
-    return <HistoryWorkspace />;
+    return <HistoryWorkspaceScreen />;
   }
 
   return <ProjectsWorkspace />;
 }
 
 function ProjectsWorkspace() {
-  const [projects, setProjects] = useState<ClientProject[] | null>(null);
+  const cached = peekCachedJson<{ projects: ClientProject[] }>("/api/projects");
+  const [projects, setProjects] = useState<ClientProject[] | null>(cached?.projects ?? null);
 
   useEffect(() => {
-    fetch("/api/projects")
-      .then((response) => response.json())
+    const load = () => cachedJson<{ projects: ClientProject[] }>("/api/projects")
       .then((data) => setProjects(data.projects ?? []))
       .catch(() => setProjects([]));
+    load();
+    window.addEventListener("velvet:studio-update", load);
+    return () => window.removeEventListener("velvet:studio-update", load);
   }, []);
 
   if (projects === null) {
@@ -598,9 +566,11 @@ function ProjectsWorkspace() {
 
 function ProjectDetailWorkspace({ id }: { id: string }) {
   const setup = useSetupOverview();
-  const [project, setProject] = useState<ClientProject | null>(null);
-  const [jobs, setJobs] = useState<ClientJob[]>([]);
-  const [usage, setUsage] = useState<ClientUsage[]>([]);
+  const resourceKey = `/api/projects/${id}`;
+  const cached = peekCachedJson<{ project?: ClientProject; jobs?: ClientJob[]; usage?: ClientUsage[] }>(resourceKey);
+  const [project, setProject] = useState<ClientProject | null>(cached?.project ?? null);
+  const [jobs, setJobs] = useState<ClientJob[]>(cached?.jobs ?? []);
+  const [usage, setUsage] = useState<ClientUsage[]>(cached?.usage ?? []);
   const [message, setMessage] = useState("Review the blueprint before running paid generation.");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -626,8 +596,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   });
 
   const loadProject = useCallback(async () => {
-    const response = await fetch(`/api/projects/${id}`);
-    const data = await response.json();
+    const data = await cachedJson<{ project?: ClientProject; jobs?: ClientJob[]; usage?: ClientUsage[] }>(resourceKey, true);
     setProject(data.project ?? null);
     setJobs(data.jobs ?? []);
     setUsage(data.usage ?? []);
@@ -642,10 +611,12 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
         youtubeTags: data.project.blueprint.youtube.tags?.join(", ") ?? ""
       });
     }
-  }, [id]);
+  }, [resourceKey]);
 
   useEffect(() => {
     loadProject().catch(() => setMessage("Project could not be loaded."));
+    window.addEventListener("velvet:studio-update", loadProject);
+    return () => window.removeEventListener("velvet:studio-update", loadProject);
   }, [loadProject]);
 
   useEffect(() => {
@@ -806,9 +777,9 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
 
         <div className="mt-3 grid grid-cols-4 gap-2">
           <WorkflowButton icon={<Check className="h-4 w-4" />} label="Approve" active={busyAction === "approve"} onClick={() => runAction("approve")} disabled={project.status !== "blueprint"} />
-          <WorkflowButton icon={<WandSparkles className="h-4 w-4" />} label="Generate" active={busyAction === "music"} onClick={() => runAction("music")} disabled={!["approved", "generating"].includes(project.status)} />
+          <WorkflowButton icon={<WandSparkles className="h-4 w-4" />} label="Generate" active={busyAction === "music"} onClick={() => runAction("music")} disabled={!setup.canGenerate || !["approved", "generating"].includes(project.status)} />
           <WorkflowButton icon={<Clapperboard className="h-4 w-4" />} label="Render" active={busyAction === "render"} onClick={() => runAction("render")} disabled={!project.generatedTracks?.length} />
-          <WorkflowButton icon={<Upload className="h-4 w-4" />} label="Upload" active={busyAction === "upload"} onClick={() => runAction("upload")} disabled={!project.render?.videoPath} />
+          <WorkflowButton icon={<Upload className="h-4 w-4" />} label="Upload" active={busyAction === "upload"} onClick={() => runAction("upload")} disabled={!setup.canPublish || !project.render?.videoPath} />
         </div>
 
         <div className="mt-3 overflow-hidden rounded-lg bg-black/15 ring-1 ring-inset ring-[var(--border)]">
@@ -1061,6 +1032,8 @@ function formatCost(usage: ClientUsage) {
   return "Rate not set";
 }
 
+// Kept as a compact fallback while the active History screen is loaded in its own bundle.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function HistoryWorkspace() {
   const [prompts, setPrompts] = useState<ClientPrompt[]>([]);
   const [jobs, setJobs] = useState<ClientJob[]>([]);
@@ -1201,32 +1174,13 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
     setBusy(true);
     setMessage(`Saving and checking ${provider === "openai" ? "OpenAI" : "ElevenLabs"}...`);
     try {
-      const response = await fetch("/api/setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(provider === "openai" ? { openaiApiKey: key } : { elevenLabsApiKey: key })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "The encrypted setup could not be saved.");
-
-      const validationResults = new Map<string, ClientStatus>();
-      for (const savedProvider of (["openai", "elevenlabs"] as const).filter((name) => data.secrets?.[name])) {
-        const validation = await fetch("/api/setup/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: savedProvider })
-        });
-        const result = await validation.json();
-        validationResults.set(savedProvider, result.status ?? { state: "invalid", message: "Provider check failed." });
-      }
-
-      const providerStatus = validationResults.get(provider);
+      const data = await saveAndValidateSetup(provider === "openai" ? { openaiApiKey: key } : { elevenLabsApiKey: key }, [provider]);
+      const providerStatus = data.validation?.[provider];
       if (providerStatus?.state !== "valid") throw new Error(providerStatus?.message ?? "That API key could not be verified.");
 
       setCompleted((current) => current.map((value, currentIndex) => currentIndex === index ? true : value) as [boolean, boolean, boolean]);
       if (provider === "openai") setOpenaiKey("");
       else setElevenLabsKey("");
-      window.dispatchEvent(new Event("velvet:setup-updated"));
       setMessage(`${provider === "openai" ? "OpenAI" : "ElevenLabs"} is connected and saved in Settings.`);
       setStep(index + 1);
     } catch (error) {
@@ -1251,13 +1205,7 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
 
       setMessage("Saving the encrypted Google connection...");
       try {
-        const response = await fetch("/api/setup/youtube-oauth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId: googleClientId, clientSecret: googleClientSecret })
-        });
-        const data = await response.json();
-        if (!response.ok || !data.configured) throw new Error(data.error ?? "Google sign-in could not be configured.");
+        await configureYouTubeOAuth(googleClientId, googleClientSecret);
         setYoutubeLoginAvailable(true);
         setGoogleClientId("");
         setGoogleClientSecret("");
@@ -1271,26 +1219,16 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
     setMessage("Finish signing in with your Google account. Velvet will connect automatically.");
     window.open("/api/youtube/login", "_blank", "noopener,noreferrer");
 
-    for (let attempt = 0; attempt < 90; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-      try {
-        const response = await fetch("/api/setup", { cache: "no-store" });
-        const data = await response.json();
-        if (data.setup?.youtube?.status?.state !== "connected") continue;
-
-        setCompleted((current) => [current[0], current[1], true]);
-        setMessage(data.setup.youtube.status.message ?? "YouTube connected successfully.");
-        window.dispatchEvent(new Event("velvet:setup-updated"));
-        setBusy(false);
-        onDismiss(true);
-        return;
-      } catch {
-        // Keep waiting while the system browser completes Google authorization.
-      }
+    try {
+      const data = await waitForYouTubeConnection();
+      setCompleted((current) => [current[0], current[1], true]);
+      setMessage(data.setup?.youtube?.status?.message ?? "YouTube connected successfully.");
+      setBusy(false);
+      onDismiss(true);
+    } catch (error) {
+      setBusy(false);
+      setMessage(error instanceof Error ? error.message : "YouTube sign-in was not completed.");
     }
-
-    setBusy(false);
-    setMessage("YouTube sign-in was not completed. You can retry here or finish later in Settings.");
   }
 
   const steps = [
@@ -1376,6 +1314,7 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
 }
 
 function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
+  const setupController = useSetupController();
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
   const [youtubeLoginAvailable, setYoutubeLoginAvailable] = useState(false);
   const [connectingYouTube, setConnectingYouTube] = useState(false);
@@ -1384,7 +1323,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const [setupSaveState, setSetupSaveState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [savingSetup, setSavingSetup] = useState(false);
   const [setupMessage, setSetupMessage] = useState("Keys are encrypted before being stored locally.");
-  const [providerStatus, setProviderStatus] = useState<Record<string, ClientStatus>>({});
+  const [providerStatus, setProviderStatus] = useState<Partial<Record<string, ClientStatus>>>({});
   const [savedKeyHints, setSavedKeyHints] = useState<Record<"openai" | "elevenlabs", string | undefined>>({ openai: undefined, elevenlabs: undefined });
   const [setupForm, setSetupForm] = useState<SetupForm>({
     openaiApiKey: "",
@@ -1417,22 +1356,24 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const elevenLabsReady = providerStatus.elevenlabs?.state === "valid" || setup.services[1]?.ready;
   const aiMusicReady = Boolean(openaiReady && elevenLabsReady);
   const youtubeReady = providerStatus.youtube?.state === "connected" || setup.services[2]?.ready;
-  const onboardingReadyCount = aiMusicReady ? (youtubeReady ? 3 : 1) : 0;
+  const onboardingReadyCount = Number(openaiReady) + Number(elevenLabsReady) + Number(youtubeReady);
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
     setYoutubeStatus(search.get("youtube"));
     if (search.get("setup") === "youtube") setActiveSetupStep("youtube");
-    fetch("/api/setup")
-      .then((response) => response.json())
-      .then((data) => {
-        const setup = data.setup ?? {};
+  }, []);
+
+  useEffect(() => {
+    if (!setupController.loaded) return;
+    const data = setupController.data;
+    const storedSetup = data.setup ?? {};
         setProviderStatus({
-          openai: setup.openai?.status,
-          elevenlabs: setup.elevenlabs?.status,
-          youtube: setup.youtube?.status,
-          worker: setup.worker?.status,
-          database: setup.worker?.databaseStatus
+          openai: storedSetup.openai?.status,
+          elevenlabs: storedSetup.elevenlabs?.status,
+          youtube: storedSetup.youtube?.status,
+          worker: storedSetup.worker?.status,
+          database: storedSetup.worker?.databaseStatus
         });
         setSavedKeyHints({
           openai: data.secretHints?.openai,
@@ -1441,24 +1382,22 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
         setYoutubeLoginAvailable(Boolean(data.secrets?.youtubeOAuth));
         setSetupForm((current) => ({
           ...current,
-          planningModel: setup.openai?.planningModel ?? current.planningModel,
-          imageModel: setup.openai?.imageModel ?? current.imageModel,
-          musicModel: setup.elevenlabs?.musicModel ?? current.musicModel,
-          outputFormat: setup.elevenlabs?.outputFormat ?? current.outputFormat,
-          storageEndpoint: setup.worker?.storageEndpoint ?? current.storageEndpoint,
-          storageRegion: setup.worker?.storageRegion ?? current.storageRegion,
-          storageBucket: setup.worker?.storageBucket ?? current.storageBucket,
-          maxTracksPerRun: String(setup.budget?.maxTracksPerRun ?? current.maxTracksPerRun),
-          maxRenderAttemptsPerProject: String(setup.budget?.maxRenderAttemptsPerProject ?? current.maxRenderAttemptsPerProject),
-          openaiInputPerMillionTokens: String(setup.pricing?.openaiInputPerMillionTokens ?? current.openaiInputPerMillionTokens),
-          openaiOutputPerMillionTokens: String(setup.pricing?.openaiOutputPerMillionTokens ?? current.openaiOutputPerMillionTokens),
-          elevenLabsPerMinute: String(setup.pricing?.elevenLabsPerMinute ?? current.elevenLabsPerMinute),
-          ffmpegPerRenderMinute: String(setup.pricing?.ffmpegPerRenderMinute ?? current.ffmpegPerRenderMinute),
-          youtubeUploadPerVideo: String(setup.pricing?.youtubeUploadPerVideo ?? current.youtubeUploadPerVideo)
+          planningModel: storedSetup.openai?.planningModel ?? current.planningModel,
+          imageModel: storedSetup.openai?.imageModel ?? current.imageModel,
+          musicModel: storedSetup.elevenlabs?.musicModel ?? current.musicModel,
+          outputFormat: storedSetup.elevenlabs?.outputFormat ?? current.outputFormat,
+          storageEndpoint: storedSetup.worker?.storageEndpoint ?? current.storageEndpoint,
+          storageRegion: storedSetup.worker?.storageRegion ?? current.storageRegion,
+          storageBucket: storedSetup.worker?.storageBucket ?? current.storageBucket,
+          maxTracksPerRun: String(storedSetup.budget?.maxTracksPerRun ?? current.maxTracksPerRun),
+          maxRenderAttemptsPerProject: String(storedSetup.budget?.maxRenderAttemptsPerProject ?? current.maxRenderAttemptsPerProject),
+          openaiInputPerMillionTokens: String(storedSetup.pricing?.openaiInputPerMillionTokens ?? current.openaiInputPerMillionTokens),
+          openaiOutputPerMillionTokens: String(storedSetup.pricing?.openaiOutputPerMillionTokens ?? current.openaiOutputPerMillionTokens),
+          elevenLabsPerMinute: String(storedSetup.pricing?.elevenLabsPerMinute ?? current.elevenLabsPerMinute),
+          ffmpegPerRenderMinute: String(storedSetup.pricing?.ffmpegPerRenderMinute ?? current.ffmpegPerRenderMinute),
+          youtubeUploadPerVideo: String(storedSetup.pricing?.youtubeUploadPerVideo ?? current.youtubeUploadPerVideo)
         }));
-      })
-      .catch(() => setSetupMessage("Setup status is unavailable."));
-  }, []);
+  }, [setupController.data, setupController.loaded]);
 
   function updateSetupForm(field: keyof SetupForm, value: string) {
     setSetupForm((current) => ({ ...current, [field]: value }));
@@ -1469,12 +1408,15 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     setSetupSaveState("saving");
     setSetupMessage("Saving encrypted setup...");
     try {
-      const response = await fetch("/api/setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(setupForm)
-      });
-      const data = await response.json();
+      const providers = validateServices
+        ? ([
+            ...(setupForm.openaiApiKey || setupController.data.secrets?.openai ? ["openai"] : []),
+            ...(setupForm.elevenLabsApiKey || setupController.data.secrets?.elevenlabs ? ["elevenlabs"] : []),
+            ...(setupForm.databaseUrl || setupController.data.secrets?.database ? ["database"] : []),
+            ...(setupForm.storageEndpoint || setupForm.storageAccessKeyId || setupController.data.secrets?.storage ? ["storage"] : [])
+          ] as Array<"openai" | "elevenlabs" | "database" | "storage">)
+        : [];
+      const data = await setupController.saveAndValidate(setupForm, providers);
       const savedStatuses = {
         openai: data.setup?.openai?.status,
         elevenlabs: data.setup?.elevenlabs?.status,
@@ -1484,30 +1426,18 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
       };
       setProviderStatus(savedStatuses);
       setSavedKeyHints({ openai: data.secretHints?.openai, elevenlabs: data.secretHints?.elevenlabs });
-      setSetupSaveState(response.ok ? "success" : "error");
-      setSetupMessage(response.ok ? "Setup saved. Checking connected services..." : (data.error ?? "Setup could not be saved."));
-
-      if (!response.ok) return false;
+      setSetupSaveState("success");
+      setSetupMessage(validateServices ? "Setup saved and connected services checked." : "Setup saved.");
 
       if (validateServices) {
-        const providers = (["openai", "elevenlabs", "database", "storage"] as const).filter((provider) => data.secrets?.[provider]);
-        const results: Array<{ provider: "openai" | "elevenlabs" | "database" | "storage"; status: ClientStatus }> = [];
-        for (const provider of providers) {
-          const validation = await fetch("/api/setup/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider })
-          });
-          const result = await validation.json();
-          results.push({ provider, status: result.status ?? { state: "invalid", message: "Provider check failed." } });
-        }
-        const checkedStatuses = Object.fromEntries(results.map(({ provider, status }) => [provider, status]));
+        const checkedStatuses = data.validation ?? {};
         const nextStatuses = { ...savedStatuses, ...checkedStatuses };
         setProviderStatus(nextStatuses);
 
-        const failedServices = results
-          .filter(({ provider, status }) => (provider === "openai" || provider === "elevenlabs") && status.state !== "valid")
-          .map(({ provider }) => provider === "openai" ? "ChatGPT" : "ElevenLabs");
+        const failedServices = (["openai", "elevenlabs"] as const)
+          .filter((provider) => providers.includes(provider))
+          .filter((provider) => checkedStatuses[provider]?.state !== "valid")
+          .map((provider) => provider === "openai" ? "ChatGPT" : "ElevenLabs");
         const coreServicesReady = nextStatuses.openai?.state === "valid" && nextStatuses.elevenlabs?.state === "valid";
 
         if (coreServicesReady && activeSetupStep === "services") {
@@ -1518,13 +1448,12 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
           setSetupSaveState("error");
           setSetupMessage(`${failedServices.join(" and ")} could not be verified. Check the status below and try again.`);
         } else {
-          setSetupMessage(results.length ? "Setup saved and connected services checked." : "Setup saved.");
+          setSetupMessage(providers.length ? "Setup saved and connected services checked." : "Setup saved.");
         }
       } else {
         setSetupMessage("Setup saved.");
       }
 
-      window.dispatchEvent(new Event("velvet:setup-updated"));
       return true;
     } catch {
       setSetupSaveState("error");
@@ -1547,13 +1476,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
       setSetupSaveState("saving");
       setSetupMessage("Saving the encrypted Google connection...");
       try {
-        const response = await fetch("/api/setup/youtube-oauth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId: setupForm.googleClientId, clientSecret: setupForm.googleClientSecret })
-        });
-        const data = await response.json();
-        if (!response.ok || !data.configured) throw new Error(data.error ?? "Google sign-in could not be configured.");
+        await configureYouTubeOAuth(setupForm.googleClientId, setupForm.googleClientSecret);
         setYoutubeLoginAvailable(true);
         setSetupForm((current) => ({ ...current, googleClientId: "", googleClientSecret: "" }));
       } catch (error) {
@@ -1568,28 +1491,18 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     setSetupSaveState("saving");
     setSetupMessage("Finish signing in with your Google account. Velvet will connect automatically.");
 
-    for (let attempt = 0; attempt < 90; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-      try {
-        const response = await fetch("/api/setup", { cache: "no-store" });
-        const data = await response.json();
-        if (data.setup?.youtube?.status?.state !== "connected") continue;
-
-        setProviderStatus((current) => ({ ...current, youtube: data.setup.youtube.status }));
-        setSetupSaveState("success");
-        setSetupMessage(data.setup.youtube.status.message ?? "YouTube connected successfully.");
-        setActiveSetupStep("review");
-        window.dispatchEvent(new Event("velvet:setup-updated"));
-        setConnectingYouTube(false);
-        return;
-      } catch {
-        // Keep waiting while the external browser completes authorization.
-      }
+    try {
+      const data = await waitForYouTubeConnection();
+      setProviderStatus((current) => ({ ...current, youtube: data.setup?.youtube?.status }));
+      setSetupSaveState("success");
+      setSetupMessage(data.setup?.youtube?.status?.message ?? "YouTube connected successfully.");
+      setActiveSetupStep("review");
+    } catch (error) {
+      setSetupSaveState("error");
+      setSetupMessage(error instanceof Error ? error.message : "YouTube sign-in was not completed.");
+    } finally {
+      setConnectingYouTube(false);
     }
-
-    setConnectingYouTube(false);
-    setSetupSaveState("error");
-    setSetupMessage("YouTube sign-in was not completed. Use Log in with YouTube to try again.");
   }
 
   async function syncDatabase() {
@@ -1870,6 +1783,7 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
 
         </section>
           <aside className="hidden space-y-4 xl:block">
+          <StudioHealth />
           <aside className="panel rounded-xl p-5">
             <SectionTitle label="Readiness" />
             <div className="mt-4 space-y-3">
@@ -1926,6 +1840,8 @@ function YouTubeStatusNotice({ status }: { status: string }) {
   );
 }
 
+// Kept as a compact fallback while the active New Media screen is loaded in its own bundle.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NewProjectFlow() {
   const [mediaType, setMediaType] = useState<"song" | "album">("song");
   const [brief, setBrief] = useState("");

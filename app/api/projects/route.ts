@@ -29,6 +29,9 @@ export async function POST(request: Request) {
   }
 
   const database = await readDatabase();
+  if (database.setup.openai?.status.state !== "valid") {
+    return NextResponse.json({ error: "Verify the OpenAI key in Settings before creating a blueprint." }, { status: 409 });
+  }
   const job = await addJob({
     type: "blueprint",
     status: "running",

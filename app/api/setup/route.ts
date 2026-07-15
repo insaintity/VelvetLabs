@@ -3,6 +3,7 @@ import { readDatabase, updateSetup } from "@/lib/server/db";
 import { getStorageConfig } from "@/lib/server/providers/storage";
 import { requireSameOrigin } from "@/lib/server/security";
 import { hasSecret, readSecret, saveSecret } from "@/lib/server/secrets";
+import { validateSetupProviders, type SetupProvider } from "@/lib/server/setup-validation";
 import type { SetupRecord } from "@/lib/server/types";
 
 function maskCredential(value?: string) {
@@ -74,55 +75,66 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
 
   const body = await request.json();
+  const current = (await readDatabase()).setup;
 
-  await saveSecret("openai", body.openaiApiKey ?? "");
-  await saveSecret("elevenlabs", body.elevenLabsApiKey ?? "");
-  await saveSecret("databaseUrl", body.databaseUrl ?? "");
-  await saveSecret("storageAccessKeyId", body.storageAccessKeyId ?? "");
-  await saveSecret("storageSecretAccessKey", body.storageSecretAccessKey ?? "");
+  if (typeof body.openaiApiKey === "string" && body.openaiApiKey.trim()) await saveSecret("openai", body.openaiApiKey.trim());
+  if (typeof body.elevenLabsApiKey === "string" && body.elevenLabsApiKey.trim()) await saveSecret("elevenlabs", body.elevenLabsApiKey.trim());
+  if (typeof body.databaseUrl === "string" && body.databaseUrl.trim()) await saveSecret("databaseUrl", body.databaseUrl.trim());
+  if (typeof body.storageAccessKeyId === "string" && body.storageAccessKeyId.trim()) await saveSecret("storageAccessKeyId", body.storageAccessKeyId.trim());
+  if (typeof body.storageSecretAccessKey === "string" && body.storageSecretAccessKey.trim()) await saveSecret("storageSecretAccessKey", body.storageSecretAccessKey.trim());
   const hasOpenAI = Boolean(body.openaiApiKey) || (await hasSecret("openai"));
   const hasElevenLabs = Boolean(body.elevenLabsApiKey) || (await hasSecret("elevenlabs"));
   const hasDatabase = Boolean(body.databaseUrl) || (await hasSecret("databaseUrl"));
   const workerSetup: NonNullable<SetupRecord["worker"]> = {
-    storageEndpoint: body.storageEndpoint || undefined,
-    storageRegion: body.storageRegion || "auto",
-    storageForcePathStyle: Boolean(body.storageForcePathStyle),
-    storageBucket: body.storageBucket || "velvet-assets",
-    status: { state: "unchecked" }
+    storageEndpoint: body.storageEndpoint || current.worker?.storageEndpoint,
+    storageRegion: body.storageRegion || current.worker?.storageRegion || "auto",
+    storageForcePathStyle: body.storageForcePathStyle === undefined ? current.worker?.storageForcePathStyle ?? false : Boolean(body.storageForcePathStyle),
+    storageBucket: body.storageBucket || current.worker?.storageBucket || "velvet-assets",
+    status: current.worker?.status ?? { state: "valid", message: "Local storage is ready." }
   };
   const hasStorage = Boolean(await getStorageConfig({ worker: workerSetup }));
 
-  const setup = await updateSetup({
+  let setup = await updateSetup({
     openai: {
-      planningModel: body.planningModel || "gpt-4.1",
-      imageModel: body.imageModel || "gpt-image-1",
-      status: { state: hasOpenAI ? "unchecked" : "missing", message: hasOpenAI ? "Saved, not checked yet." : "Missing API key." }
+      planningModel: body.planningModel || current.openai?.planningModel || "gpt-4.1",
+      imageModel: body.imageModel || current.openai?.imageModel || "gpt-image-1",
+      status: body.openaiApiKey ? { state: "unchecked", message: "Saved, checking now." } : current.openai?.status ?? { state: hasOpenAI ? "unchecked" : "missing", message: hasOpenAI ? "Saved, not checked yet." : "Missing API key." }
     },
     elevenlabs: {
-      musicModel: body.musicModel || "eleven-music",
-      outputFormat: body.outputFormat || "mp3_44100_128",
-      status: { state: hasElevenLabs ? "unchecked" : "missing", message: hasElevenLabs ? "Saved, not checked yet." : "Missing API key." }
+      musicModel: body.musicModel || current.elevenlabs?.musicModel || "eleven-music",
+      outputFormat: body.outputFormat || current.elevenlabs?.outputFormat || "mp3_44100_128",
+      status: body.elevenLabsApiKey ? { state: "unchecked", message: "Saved, checking now." } : current.elevenlabs?.status ?? { state: hasElevenLabs ? "unchecked" : "missing", message: hasElevenLabs ? "Saved, not checked yet." : "Missing API key." }
     },
     worker: {
       ...workerSetup,
-      status: { state: hasStorage ? "unchecked" : "valid", message: hasStorage ? "Private media storage saved, not checked yet." : "Local storage is ready." },
-      databaseStatus: {
+      status: body.storageEndpoint || body.storageAccessKeyId || body.storageSecretAccessKey ? { state: hasStorage ? "unchecked" : "valid", message: hasStorage ? "Private media storage saved, not checked yet." : "Local storage is ready." } : current.worker?.status ?? { state: "valid", message: "Local storage is ready." },
+      databaseStatus: body.databaseUrl ? {
         state: hasDatabase ? "unchecked" : "missing",
         message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set."
-      }
+      } : current.worker?.databaseStatus ?? { state: hasDatabase ? "unchecked" : "missing", message: hasDatabase ? "Database URL saved encrypted, not checked yet." : "Optional database URL not set." }
     },
     budget: {
-      maxTracksPerRun: Number(body.maxTracksPerRun) || 10,
-      maxRenderAttemptsPerProject: Number(body.maxRenderAttemptsPerProject) || 5
+      maxTracksPerRun: Number(body.maxTracksPerRun) || current.budget?.maxTracksPerRun || 10,
+      maxRenderAttemptsPerProject: Number(body.maxRenderAttemptsPerProject) || current.budget?.maxRenderAttemptsPerProject || 5
     },
     pricing: {
-      openaiInputPerMillionTokens: Number(body.openaiInputPerMillionTokens) || undefined,
-      openaiOutputPerMillionTokens: Number(body.openaiOutputPerMillionTokens) || undefined,
-      elevenLabsPerMinute: Number(body.elevenLabsPerMinute) || undefined,
-      ffmpegPerRenderMinute: Number(body.ffmpegPerRenderMinute) || undefined,
-      youtubeUploadPerVideo: Number(body.youtubeUploadPerVideo) || undefined
+      openaiInputPerMillionTokens: Number(body.openaiInputPerMillionTokens) || current.pricing?.openaiInputPerMillionTokens,
+      openaiOutputPerMillionTokens: Number(body.openaiOutputPerMillionTokens) || current.pricing?.openaiOutputPerMillionTokens,
+      elevenLabsPerMinute: Number(body.elevenLabsPerMinute) || current.pricing?.elevenLabsPerMinute,
+      ffmpegPerRenderMinute: Number(body.ffmpegPerRenderMinute) || current.pricing?.ffmpegPerRenderMinute,
+      youtubeUploadPerVideo: Number(body.youtubeUploadPerVideo) || current.pricing?.youtubeUploadPerVideo
     }
   });
 
-  return NextResponse.json({ setup, ...(await getSecretSummary(setup)) });
+  const requestedProviders = Array.isArray(body.validateProviders)
+    ? body.validateProviders.filter((provider: unknown): provider is SetupProvider => ["openai", "elevenlabs", "database", "storage"].includes(String(provider)))
+    : [];
+  let validation = {};
+  if (requestedProviders.length) {
+    const result = await validateSetupProviders(requestedProviders);
+    setup = result.setup;
+    validation = result.validation;
+  }
+
+  return NextResponse.json({ setup, validation, ...(await getSecretSummary(setup)) });
 }

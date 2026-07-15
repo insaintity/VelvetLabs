@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addJob, readDatabase, updateJob } from "@/lib/server/db";
 import { requireSameOrigin } from "@/lib/server/security";
+import { hasSecret } from "@/lib/server/secrets";
 
 export async function GET() {
   const database = await readDatabase();
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
   const body = await request.json();
   const database = await readDatabase();
+  if (database.setup.youtube?.status.state !== "connected" || !(await hasSecret("youtubeRefreshToken"))) {
+    return NextResponse.json({ error: "Log in with YouTube before scheduling an upload." }, { status: 409 });
+  }
   const project = database.projects.find((item) => item.id === body.projectId);
   if (!project?.render?.videoPath && !project?.render?.videoStoragePath) return NextResponse.json({ error: "Render this release before scheduling its upload." }, { status: 409 });
   const scheduledPublishAt = readFutureDate(body.scheduledPublishAt);

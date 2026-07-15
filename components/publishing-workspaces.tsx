@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, CalendarClock, Check, ChevronDown, Clock3, ExternalLink, Lock, Send, ShieldCheck, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { emitToast } from "@/components/project-studio-tools";
+import { emitToast } from "@/components/toast-system";
+import { useSetupOverview } from "@/components/setup-controller";
 import { ProjectArtwork, StatusPill } from "@/components/studio-chrome";
+import { cachedJson, peekCachedJson } from "@/components/data-cache";
 
 type PublishingProject = { id: string; title: string; status: string; render?: { videoPath?: string; videoStoragePath?: string } };
 type PublishingJob = { id: string; projectId?: string; status: string; message: string; payload?: { privacy?: string; scheduledPublishAt?: string } };
@@ -13,13 +15,14 @@ type PublishingUpload = { id: string; projectId: string; projectTitle?: string; 
 type PublishingData = { projects: PublishingProject[]; schedules: PublishingJob[]; recent: PublishingUpload[] };
 
 export function PublishingWorkspace() {
-  const [data, setData] = useState<PublishingData | null>(null);
+  const setup = useSetupOverview();
+  const [data, setData] = useState<PublishingData | null>(peekCachedJson<PublishingData>("/api/publishing") ?? null);
   const [projectId, setProjectId] = useState("");
   const [privacy, setPrivacy] = useState<"private" | "unlisted" | "public">("private");
   const [scheduledAt, setScheduledAt] = useState(() => defaultScheduleValue());
   const [busy, setBusy] = useState(false);
-  const load = useCallback(async () => { const response = await fetch("/api/publishing"); const body = await response.json(); setData(body); setProjectId((current) => current || body.projects?.[0]?.id || ""); }, []);
-  useEffect(() => { load().catch(() => setData({ projects: [], schedules: [], recent: [] })); }, [load]);
+  const load = useCallback(async () => { const body = await cachedJson<PublishingData>("/api/publishing", true); setData(body); setProjectId((current) => current || body.projects?.[0]?.id || ""); }, []);
+  useEffect(() => { load().catch(() => setData({ projects: [], schedules: [], recent: [] })); window.addEventListener("velvet:studio-update", load); return () => window.removeEventListener("velvet:studio-update", load); }, [load]);
 
   async function schedule() {
     setBusy(true);
@@ -47,7 +50,7 @@ export function PublishingWorkspace() {
             <ProjectPicker projects={data.projects} value={projectId} onChange={setProjectId} />
             <label className="block text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Publish time<input aria-label="Publish time" type="datetime-local" value={scheduledAt} min={minimumScheduleValue()} onChange={(event) => setScheduledAt(event.target.value)} className="mt-1.5 h-11 w-full rounded-lg bg-black/20 px-3 text-sm normal-case text-white ring-1 ring-inset ring-[var(--border)] [color-scheme:dark] focus:ring-[var(--border-active)]" /></label>
             <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">YouTube privacy</div><div className="mt-1.5 grid h-11 grid-cols-3 rounded-lg bg-black/20 p-1 ring-1 ring-inset ring-[var(--border)]">{(["private", "unlisted", "public"] as const).map((option) => <button key={option} onClick={() => setPrivacy(option)} aria-pressed={privacy === option} className={`rounded-md text-xs font-medium capitalize ${privacy === option ? "bg-[rgba(239,99,152,.14)] text-white shadow-[inset_0_0_0_1px_rgba(239,99,152,.3)]" : "text-[var(--text-muted)] hover:text-white"}`}>{option}</button>)}</div></div>
-            <button onClick={schedule} disabled={!projectId || busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] text-sm font-medium disabled:cursor-not-allowed disabled:opacity-35"><Send className="h-4 w-4" />{busy ? "Scheduling" : "Schedule upload"}</button>
+            <button onClick={schedule} disabled={!projectId || busy || !setup.canPublish} title={setup.canPublish ? "Schedule this YouTube upload." : "Connect YouTube in Settings before publishing."} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] text-sm font-medium disabled:cursor-not-allowed disabled:opacity-35"><Send className="h-4 w-4" />{busy ? "Scheduling" : setup.canPublish ? "Schedule upload" : "Connect YouTube to publish"}</button>
           </div>
         </div>
         <div className="mt-6 border-t border-[var(--border)] pt-4"><div className="flex items-center justify-between"><SectionLabel icon={<Clock3 className="h-4 w-4" />} label="Upcoming" /><span className="text-[11px] text-[var(--text-muted)]">Local time</span></div>
@@ -62,8 +65,8 @@ export function PublishingWorkspace() {
 type AnalyticsData = { summary: { successfulUploads: number; failedUploads: number; scheduledUploads: number; successRate: number; publicUploads: number; unlistedUploads: number; privateUploads: number }; months: Array<{ key: string; label: string; success: number; failed: number }>; uploads: PublishingUpload[]; failures: Array<{ id: string; projectId?: string; message: string; createdAt: string }> };
 
 export function AnalyticsWorkspace() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  useEffect(() => { fetch("/api/analytics/uploads").then((response) => response.json()).then(setData).catch(() => undefined); }, []);
+  const [data, setData] = useState<AnalyticsData | null>(peekCachedJson<AnalyticsData>("/api/analytics/uploads") ?? null);
+  useEffect(() => { const load = () => cachedJson<AnalyticsData>("/api/analytics/uploads", true).then(setData).catch(() => undefined); load(); window.addEventListener("velvet:studio-update", load); return () => window.removeEventListener("velvet:studio-update", load); }, []);
   if (!data) return <WorkspaceSkeleton label="Loading analytics" />;
   const max = Math.max(1, ...data.months.map((month) => month.success + month.failed));
   const privacyTotal = Math.max(1, data.summary.successfulUploads);

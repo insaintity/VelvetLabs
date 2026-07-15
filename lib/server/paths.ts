@@ -8,8 +8,11 @@ export const databasePath = path.join(velvetDir, "db.json");
 export const secretsPath = path.join(velvetDir, "secrets.json");
 export const masterKeyPath = path.join(velvetDir, "master.key");
 export const exportsDir = path.join(velvetDir, "exports");
+export const backupsDir = path.join(velvetDir, "backups");
+export const workerHeartbeatPath = path.join(velvetDir, "worker-heartbeat.json");
 
 export async function ensureVelvetDir() {
   await mkdir(velvetDir, { recursive: true });
   await mkdir(exportsDir, { recursive: true });
+  await mkdir(backupsDir, { recursive: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addJob, readDatabase, updateJob } from "@/lib/server/db";
 import { requireSameOrigin } from "@/lib/server/security";
+import { hasSecret } from "@/lib/server/secrets";
 import type { JobRecord } from "@/lib/server/types";
 
 export async function GET() {
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
   }
 
   const database = await readDatabase();
+  if (type === "music" && database.setup.elevenlabs?.status.state !== "valid") {
+    return NextResponse.json({ error: "Connect and verify ElevenLabs before generating music." }, { status: 409 });
+  }
+  if (type === "youtube-upload" && (database.setup.youtube?.status.state !== "connected" || !(await hasSecret("youtubeRefreshToken")))) {
+    return NextResponse.json({ error: "Log in with YouTube before uploading." }, { status: 409 });
+  }
   const existingJob = database.jobs.find((job) => job.projectId === projectId && job.type === type && ["queued", "running"].includes(job.status));
   if (existingJob) {
     return NextResponse.json({ job: existingJob, message: `${jobLabel(type)} is already ${existingJob.status}.` }, { status: 202 });

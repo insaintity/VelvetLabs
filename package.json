@@ -18,8 +18,11 @@
     "worker": "tsx workers/velvet-worker.ts",
     "worker:once": "tsx workers/velvet-worker.ts --once",
     "desktop:prepare": "npm run build && node scripts/prepare-desktop.mjs",
+    "desktop:prepare:fast": "node scripts/prepare-desktop.mjs --reuse-build",
     "desktop:preview": "npm run desktop:prepare && electron .",
-    "desktop:dist": "npm run desktop:prepare && electron-builder --win portable"
+    "desktop:preview:fast": "npm run desktop:prepare:fast && electron .",
+    "desktop:dist": "npm run desktop:prepare && electron-builder --win portable",
+    "desktop:dist:fast": "npm run desktop:prepare:fast && electron-builder --win portable"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1087.0",

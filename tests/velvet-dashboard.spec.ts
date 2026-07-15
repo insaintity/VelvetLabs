@@ -69,7 +69,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("dialog", { name: "Set up your Velvet studio." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Describe the song or album." })).toBeVisible();
     await expect(page.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Setup Required" })).toHaveAttribute("href", "/settings");
+    await expect(page.getByRole("link", { name: "Connect OpenAI" }).first()).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("button", { name: /Play|Pause/ })).toHaveCount(0);
 
     const screenshot = await page.screenshot({ fullPage: true });
@@ -126,7 +126,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Album" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create Blueprint" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Prompt Producer" })).toBeVisible();
-    await expect(page.getByText("ChatGPT and ElevenLabs calls stay blocked until approved.")).toBeVisible();
+    await expect(page.getByText("Music generation waits for ElevenLabs; publishing waits for YouTube.")).toBeVisible();
     await expect(page.getByRole("link", { name: "New Media" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("link", { name: "Projects" })).not.toHaveAttribute("aria-current", "page");
 
@@ -143,16 +143,18 @@ test.describe("Velvet dashboard", () => {
     let setupReady = false;
     await page.route("**/api/setup", async (route) => {
       if (route.request().method() === "POST") {
+        setupReady = true;
         await route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
             setup: {
-              openai: { status: { state: "unchecked", message: "Saved, not checked yet." } },
-              elevenlabs: { status: { state: "unchecked", message: "Saved, not checked yet." } }
+              openai: { status: { state: "valid", message: "Key is valid." } },
+              elevenlabs: { status: { state: "valid", message: "Key is valid." } }
             },
             secrets: { openai: true, elevenlabs: true, youtube: false, database: false, storage: false },
-            secretHints: { openai: "sk-••••1234", elevenlabs: "••••5678" }
+            secretHints: { openai: "sk-****1234", elevenlabs: "****5678" },
+            validation: { openai: { state: "valid", message: "Key is valid." }, elevenlabs: { state: "valid", message: "Key is valid." } }
           })
         });
         return;
@@ -171,15 +173,6 @@ test.describe("Velvet dashboard", () => {
         })
       });
     });
-    await page.route("**/api/setup/validate", async (route) => {
-      setupReady = true;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status: { state: "valid", message: "Key is valid." } })
-      });
-    });
-
     await page.goto("/settings");
     await page.getByLabel("OpenAI API key").fill("sk-test-openai");
     await page.getByRole("button", { name: "ElevenLabs", exact: true }).click();
@@ -187,7 +180,7 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "Save Setup" }).click();
 
     await expect(page.getByText("ChatGPT and ElevenLabs are connected. Continue with YouTube.")).toBeVisible();
-    await expect(page.locator(".setup-progress-count")).toHaveText(/1\s*\/\s*3/);
+    await expect(page.locator(".setup-progress-count")).toHaveText(/2\s*\/\s*3/);
     await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
     await expect(page.getByLabel("AI + Music complete")).toBeVisible();
   });
@@ -199,8 +192,8 @@ test.describe("Velvet dashboard", () => {
     await page.route("**/api/setup", async (route) => {
       if (route.request().method() === "POST") {
         const body = route.request().postDataJSON() as { openaiApiKey?: string; elevenLabsApiKey?: string };
-        if (body.openaiApiKey) saved.openai = true;
-        if (body.elevenLabsApiKey) saved.elevenlabs = true;
+        if (body.openaiApiKey) saved.openai = valid.openai = true;
+        if (body.elevenLabsApiKey) saved.elevenlabs = valid.elevenlabs = true;
       }
 
       await route.fulfill({
@@ -214,22 +207,16 @@ test.describe("Velvet dashboard", () => {
           },
           secrets: { openai: saved.openai, elevenlabs: saved.elevenlabs, youtube: false, youtubeOAuth: false },
           secretHints: {
-            openai: saved.openai ? "sk-••••1234" : undefined,
-            elevenlabs: saved.elevenlabs ? "••••5678" : undefined
+            openai: saved.openai ? "sk-****1234" : undefined,
+            elevenlabs: saved.elevenlabs ? "****5678" : undefined
+          },
+          validation: {
+            ...(valid.openai ? { openai: { state: "valid", message: "Key is valid." } } : {}),
+            ...(valid.elevenlabs ? { elevenlabs: { state: "valid", message: "Key is valid." } } : {})
           }
         })
       });
     });
-    await page.route("**/api/setup/validate", async (route) => {
-      const { provider } = route.request().postDataJSON() as { provider: "openai" | "elevenlabs" };
-      valid[provider] = true;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status: { state: "valid", message: "Key is valid." } })
-      });
-    });
-
     await page.goto("/projects/new");
     const dialog = page.getByRole("dialog", { name: "Set up your Velvet studio." });
     await expect(dialog).toBeVisible();
@@ -251,9 +238,9 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("dialog", { name: "Set up your Velvet studio." })).toHaveCount(0);
 
     await page.goto("/settings");
-    await expect(page.getByText("Saved key: sk-••••1234")).toBeVisible();
+    await expect(page.getByText("Saved key: sk-****1234")).toBeVisible();
     await page.getByRole("button", { name: "ElevenLabs", exact: true }).click();
-    await expect(page.getByText("Saved key: ••••5678")).toBeVisible();
+    await expect(page.getByText("Saved key: ****5678")).toBeVisible();
   });
 
   test("builds an editable brief with Prompt Producer", async ({ page }) => {
@@ -363,7 +350,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("heading", { name: "Upload scheduler" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Rendered release" })).toContainText("Midnight Velvet");
     await expect(page.getByLabel("Publish time")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Schedule upload" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Connect YouTube to publish" })).toBeDisabled();
     await expect(page.getByRole("link", { name: "Scheduler" })).toHaveAttribute("aria-current", "page");
   });
 

@@ -5,6 +5,7 @@ import { estimateUsageCost } from "./costs";
 import { mergeVelvetDatabases } from "./database-merge";
 import { initializeVelvetSchema, readVelvetDatabase, syncVelvetDatabase } from "./providers/postgres";
 import { readSecret } from "./secrets";
+import { createRollingBackup } from "./backups";
 import type { JobRecord, ProjectRecord, PromptRecord, SetupRecord, UsageRecord, VelvetDatabase } from "./types";
 
 const emptyDatabase: VelvetDatabase = {
@@ -77,6 +78,7 @@ export async function readDatabase(): Promise<VelvetDatabase> {
 
 export async function writeDatabase(database: VelvetDatabase) {
   await writeLocalDatabase(database);
+  await createRollingBackup(database).catch(() => undefined);
   const connectionString = await getHostedConnectionString();
 
   if (!connectionString) {

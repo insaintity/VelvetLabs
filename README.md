@@ -7,14 +7,14 @@ The app opens like a brand-new workspace and guides the user through setup befor
 ## What It Does
 
 - Collects a natural-language prompt for a song or album.
-- Onboards the required services: ChatGPT/OpenAI, ElevenLabs, YouTube, storage, and worker settings.
+- Guides setup progressively: OpenAI for blueprints, ElevenLabs for music generation, and YouTube only for publishing.
 - Encrypts provider secrets before local storage.
 - Validates OpenAI and ElevenLabs keys.
 - Lets users provide any PostgreSQL database URL and validates the connection.
 - Initializes `velvet_*` tables in PostgreSQL and syncs local records into them.
 - Includes a portable PostgreSQL migration for the Velvet schema.
 - Supports opt-in hosted database mirroring with `VELVET_DATABASE_MODE=postgres`.
-- Generates song and album blueprints with OpenAI once setup is complete.
+- Generates song and album blueprints as soon as OpenAI is connected; later services do not block creative planning.
 - Provides a project review screen for approving blueprints before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.
 - Auditions real generated audio in a persistent waveform transport.
@@ -34,7 +34,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Exports a portable JSON project archive with prompts, jobs, usage, and upload history.
 - Opens Google account sign-in for YouTube, uses PKCE for the authorization code exchange, and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
-- Provides a fixed, no-scroll studio interface with focus mode, density controls, optional wallpaper transparency, command palette, animated loading states, and reduced-motion support.
+- Provides a fixed, no-scroll studio interface with optional wallpaper transparency, command palette, animated loading states, and reduced-motion support.
 - Protects production as a private single-user studio with a signed, HTTP-only login session.
 - Schedules rendered releases for future YouTube uploads with privacy controls and cancellation.
 - Tracks successful and failed uploads, success rate, privacy mix, and six-month publishing outcomes.
@@ -86,6 +86,14 @@ Build a self-contained portable Windows executable with the Velvet server, durab
 ```bash
 npm run desktop:dist
 ```
+
+After a successful web build, reuse it for quicker desktop-only iterations:
+
+```bash
+npm run desktop:dist:fast
+```
+
+Velvet also creates rolling encrypted local backups whenever studio data changes. Export or restore a backup and check provider, worker, FFmpeg, storage, and database health from **Settings > Studio Health**.
 
 The executable is written to `release/`. Desktop projects and encrypted credentials are stored under the current Windows user's Velvet application-data directory, so replacing the executable does not remove studio data.
 

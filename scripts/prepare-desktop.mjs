@@ -7,6 +7,10 @@ const root = process.cwd();
 const output = path.join(root, "desktop-dist");
 const serverOutput = path.join(output, "app-server");
 
+if (!await exists(path.join(root, ".next", "standalone", "server.js"))) {
+  throw new Error("No reusable web build was found. Run npm run desktop:prepare once before using the fast desktop commands.");
+}
+
 await rm(output, { recursive: true, force: true });
 await mkdir(serverOutput, { recursive: true });
 await cp(path.join(root, ".next", "standalone"), serverOutput, { recursive: true });
