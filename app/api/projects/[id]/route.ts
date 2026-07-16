@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { readDatabase, updateProject, writeDatabase } from "@/lib/server/db";
 import { requireSameOrigin } from "@/lib/server/security";
+import type { ProductionSettings, ProjectRecord } from "@/lib/server/types";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -40,7 +41,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         fadeSeconds: clampNumber(body.production.fadeSeconds, project.production?.fadeSeconds ?? 0.8, 0, 5),
         targetLufs: clampNumber(body.production.targetLufs, project.production?.targetLufs ?? -14, -24, -8),
         stylePreset: cleanString(body.production.stylePreset) || project.production?.stylePreset,
-        scheduledPublishAt: cleanString(body.production.scheduledPublishAt) || project.production?.scheduledPublishAt
+        scheduledPublishAt: cleanString(body.production.scheduledPublishAt) || project.production?.scheduledPublishAt,
+        artworkAssetId: readArtworkAssetId(body.production.artworkAssetId, project),
+        visualPreset: readVisualPreset(body.production.visualPreset, project.production?.visualPreset),
+        filterIntensity: clampNumber(body.production.filterIntensity, project.production?.filterIntensity ?? 70, 0, 100),
+        overlayOpacity: clampNumber(body.production.overlayOpacity, project.production?.overlayOpacity ?? 55, 0, 100),
+        grain: clampNumber(body.production.grain, project.production?.grain ?? 18, 0, 100),
+        flicker: clampNumber(body.production.flicker, project.production?.flicker ?? 8, 0, 100),
+        vignette: clampNumber(body.production.vignette, project.production?.vignette ?? 28, 0, 100),
+        dust: clampNumber(body.production.dust, project.production?.dust ?? 5, 0, 100)
       }
     : project.production;
   const tracks = Array.isArray(body.tracks)
@@ -126,4 +135,15 @@ function cleanString(value: unknown) {
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function readArtworkAssetId(value: unknown, project: ProjectRecord) {
+  const id = cleanString(value);
+  return project.referenceAssets?.some((asset) => asset.id === id && asset.kind === "artwork") ? id : project.production?.artworkAssetId;
+}
+
+function readVisualPreset(value: unknown, fallback?: ProductionSettings["visualPreset"]) {
+  return ["clean", "velvet", "rose-film", "midnight", "noir", "mono"].includes(String(value))
+    ? value as "clean" | "velvet" | "rose-film" | "midnight" | "noir" | "mono"
+    : fallback ?? "velvet";
 }

@@ -3,9 +3,31 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { readDatabase, updateProject } from "@/lib/server/db";
-import { persistMedia } from "@/lib/server/media-storage";
+import { persistMedia, readMedia } from "@/lib/server/media-storage";
 import { exportsDir } from "@/lib/server/paths";
 import { requireSameOrigin } from "@/lib/server/security";
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId");
+  const assetId = url.searchParams.get("assetId");
+  const database = await readDatabase();
+  const project = database.projects.find((item) => item.id === projectId);
+  const asset = project?.referenceAssets?.find((item) => item.id === assetId && item.kind === "artwork");
+  if (!asset) return NextResponse.json({ error: "Artwork not found." }, { status: 404 });
+  try {
+    const image = await readMedia(asset.filePath, asset.storagePath, database.setup);
+    return new Response(new Uint8Array(image), {
+      headers: {
+        "Content-Type": artworkContentType(asset.name),
+        "Content-Length": String(image.byteLength),
+        "Cache-Control": "private, max-age=3600"
+      }
+    });
+  } catch {
+    return NextResponse.json({ error: "Artwork is unavailable on this worker." }, { status: 404 });
+  }
+}
 
 export async function POST(request: Request) {
   const blocked = requireSameOrigin(request);
@@ -29,4 +51,9 @@ export async function POST(request: Request) {
   const asset: NonNullable<typeof project.referenceAssets>[number] = { id: randomUUID(), name: file.name.slice(0, 180), kind, filePath, storagePath, createdAt: new Date().toISOString() };
   await updateProject(projectId, { referenceAssets: [...(project.referenceAssets ?? []), asset] });
   return NextResponse.json({ asset });
+}
+
+function artworkContentType(name: string) {
+  const extension = path.extname(name).toLowerCase();
+  return extension === ".png" ? "image/png" : extension === ".webp" ? "image/webp" : extension === ".gif" ? "image/gif" : "image/jpeg";
 }

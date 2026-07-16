@@ -132,10 +132,24 @@ async function processRenderJob(job: JobRecord) {
   }
 
   await updateJob(job.id, { message: "Preparing shared tracks and render manifest." });
-  const renderTracks = await Promise.all((project.generatedTracks ?? []).map(async (track) => ({
+  const selectedTracks = project.blueprint?.tracks.flatMap((track) => {
+    const generated = project.generatedTracks?.find((item) => item.title === track.title);
+    return generated ? [generated] : [];
+  }) ?? project.generatedTracks ?? [];
+  const renderTracks = await Promise.all(selectedTracks.map(async (track) => ({
     ...track,
     filePath: await materializeMedia({ localPath: track.filePath, storagePath: track.storagePath, fallbackName: `${project.id}-${track.id ?? slugify(track.title)}.mp3`, setup: database.setup })
   })));
+  const artwork = project.referenceAssets?.find((asset) => asset.id === project.production?.artworkAssetId && asset.kind === "artwork")
+    ?? project.referenceAssets?.find((asset) => asset.kind === "artwork");
+  let artworkPath: string | undefined;
+  if (artwork) {
+    try {
+      artworkPath = await materializeMedia({ localPath: artwork.filePath, storagePath: artwork.storagePath, fallbackName: `${project.id}-${artwork.id}${path.extname(artwork.name) || ".jpg"}`, setup: database.setup });
+    } catch {
+      artworkPath = undefined;
+    }
+  }
   const silenceAnalysis = renderTracks.length ? await analyzeSilence(renderTracks) : [];
   const manifest = {
     id: randomUUID(),
@@ -145,6 +159,7 @@ async function processRenderJob(job: JobRecord) {
     createdAt: new Date().toISOString(),
     tracks: project.generatedTracks ?? [],
     production: project.production,
+    artwork: artwork ? { id: artwork.id, name: artwork.name, storagePath: artwork.storagePath } : undefined,
     silenceAnalysis,
     nextStep: "Install FFmpeg and generate tracks to produce MP4 output."
   };
@@ -163,7 +178,7 @@ async function processRenderJob(job: JobRecord) {
     try {
       await execFileAsync(ffmpegBinary, ["-version"]);
       videoPath = path.join(projectDir, `${project.id}.mp4`);
-      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(renderTracks, videoPath, project.production));
+      await execFileAsync(ffmpegBinary, buildAlbumRenderArgs(renderTracks, videoPath, project.production, artworkPath));
       videoStoragePath = await persistMedia(videoPath, `projects/${project.id}/renders/${project.id}.mp4`, "video/mp4", database.setup);
       renderStatus = "rendered";
       message = "Full album MP4 rendered with FFmpeg.";
@@ -301,7 +316,7 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, production?: ProductionSettings) {
+function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, production?: ProductionSettings, artworkPath?: string) {
   const gapSeconds = Math.max(0, Math.min(10, production?.gapSeconds ?? 1.5));
   const fadeSeconds = Math.max(0, Math.min(5, production?.fadeSeconds ?? 0.8));
   const targetLufs = Math.max(-24, Math.min(-8, production?.targetLufs ?? -14));
@@ -309,14 +324,9 @@ function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, produ
     1,
     tracks.reduce((sum, track) => sum + track.durationSeconds, 0) + Math.max(0, tracks.length - 1) * gapSeconds
   );
-  const baseArgs = [
-    "-y",
-    "-f",
-    "lavfi",
-    "-i",
-    `color=c=0b0712:s=1920x1080:r=30:d=${totalSeconds}`,
-    ...tracks.flatMap((track) => ["-i", track.filePath])
-  ];
+  const baseArgs = artworkPath
+    ? ["-y", "-loop", "1", "-framerate", "30", "-i", artworkPath, ...tracks.flatMap((track) => ["-i", track.filePath])]
+    : ["-y", "-f", "lavfi", "-i", `color=c=0b0712:s=1920x1080:r=30:d=${totalSeconds}`, ...tracks.flatMap((track) => ["-i", track.filePath])];
 
   const filters = tracks.map((track, index) => {
     const fadeOutStart = Math.max(0, track.durationSeconds - fadeSeconds);
@@ -326,9 +336,9 @@ function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, produ
   });
   const audioArgs = [
     "-filter_complex",
-    `${filters.join(";")};${tracks.map((_, index) => `[a${index}]`).join("")}concat=n=${tracks.length}:v=0:a=1[aout]`,
+    `${buildVideoFilter(production)};${filters.join(";")};${tracks.map((_, index) => `[a${index}]`).join("")}concat=n=${tracks.length}:v=0:a=1[aout]`,
     "-map",
-    "0:v",
+    "[vout]",
     "-map",
     "[aout]"
   ];
@@ -342,7 +352,39 @@ function buildAlbumRenderArgs(tracks: GeneratedTrack[], videoPath: string, produ
     "aac",
     "-pix_fmt",
     "yuv420p",
+    "-r",
+    "30",
     "-shortest",
     videoPath
   ];
+}
+
+function buildVideoFilter(production?: ProductionSettings) {
+  const intensity = clampPercent(production?.filterIntensity, 70) / 100;
+  const overlay = clampPercent(production?.overlayOpacity, 55) / 100;
+  const grain = clampPercent(production?.grain, 18) / 100 * overlay;
+  const dust = clampPercent(production?.dust, 5) / 100 * overlay;
+  const flicker = clampPercent(production?.flicker, 8) / 100 * overlay;
+  const vignette = clampPercent(production?.vignette, 28) / 100 * overlay;
+  const filters = ["[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080", visualPresetFilter(production?.visualPreset ?? "velvet", intensity)];
+  const noiseAmount = Math.round(grain * 28 + dust * 16);
+  if (noiseAmount > 0) filters.push(`noise=alls=${noiseAmount}:allf=t+u`);
+  if (flicker > 0) filters.push(`eq=brightness='${(flicker * 0.055).toFixed(4)}*sin(2*PI*t*8.7)':eval=frame`);
+  if (vignette > 0) filters.push(`vignette=angle=${(0.18 + vignette * 0.62).toFixed(3)}`);
+  filters.push("format=yuv420p[vout]");
+  return filters.filter(Boolean).join(",");
+}
+
+function visualPresetFilter(preset: ProductionSettings["visualPreset"], intensity: number) {
+  const mix = (base: number, change: number) => (base + change * intensity).toFixed(3);
+  if (preset === "clean") return "";
+  if (preset === "noir") return `hue=s=${mix(1, -0.72)},eq=contrast=${mix(1, 0.24)}:brightness=${mix(0, -0.035)}`;
+  if (preset === "mono") return `hue=s=${mix(1, -1)},eq=contrast=${mix(1, 0.13)}`;
+  if (preset === "rose-film") return `eq=saturation=${mix(1, -0.08)}:contrast=${mix(1, 0.09)}:brightness=${mix(0, 0.018)},colorbalance=rs=${mix(0, 0.12)}:bs=${mix(0, -0.055)}`;
+  if (preset === "midnight") return `eq=saturation=${mix(1, -0.18)}:contrast=${mix(1, 0.18)}:brightness=${mix(0, -0.065)},colorbalance=bs=${mix(0, 0.11)}:rs=${mix(0, -0.045)}`;
+  return `eq=saturation=${mix(1, 0.12)}:contrast=${mix(1, 0.12)}:brightness=${mix(0, -0.025)},colorbalance=rs=${mix(0, 0.07)}:bs=${mix(0, 0.035)}`;
+}
+
+function clampPercent(value: number | undefined, fallback: number) {
+  return Math.max(0, Math.min(100, value ?? fallback));
 }

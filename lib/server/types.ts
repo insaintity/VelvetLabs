@@ -83,6 +83,14 @@ export type ProductionSettings = {
   targetLufs: number;
   stylePreset?: string;
   scheduledPublishAt?: string;
+  artworkAssetId?: string;
+  visualPreset?: "clean" | "velvet" | "rose-film" | "midnight" | "noir" | "mono";
+  filterIntensity?: number;
+  overlayOpacity?: number;
+  grain?: number;
+  flicker?: number;
+  vignette?: number;
+  dust?: number;
 };
 
 export type ProjectRecord = {

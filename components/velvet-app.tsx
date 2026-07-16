@@ -211,7 +211,7 @@ type ClientProject = {
   generatedTracks?: Array<{ id?: string; title: string; filePath: string; durationSeconds: number; version?: number; prompt?: string; createdAt?: string; approvedAt?: string }>;
   trackVersions?: Record<string, Array<{ id?: string; title: string; filePath: string; durationSeconds: number; version?: number; prompt?: string; createdAt?: string; approvedAt?: string }>>;
   production?: StudioProduction;
-  referenceAssets?: Array<{ id: string; name: string; kind: "audio" | "artwork"; filePath: string; createdAt: string }>;
+  referenceAssets?: Array<{ id: string; name: string; kind: "audio" | "artwork"; filePath: string; storagePath?: string; createdAt: string }>;
   creativeVariants?: { titles: string[]; thumbnailPrompts: string[]; createdAt: string };
   render?: {
     manifestPath: string;
@@ -689,7 +689,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
   async function saveStudioState(tracks: StudioTrack[], production: StudioProduction) {
     const response = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks, production }) });
     if (!response.ok) return emitToast("Timeline changes could not be saved.", "error");
-    emitToast("Album timeline saved.", "success");
+    emitToast("Video timeline saved.", "success");
     setSequenceOpen(false);
     await loadProject();
   }
@@ -803,7 +803,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
 
         <div className="mt-4 grid grid-cols-1 gap-4">
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3"><SectionTitle label="Tracks & Prompts" icon={<Music2 className="h-4 w-4" />} /><div className="flex items-center gap-1"><button onClick={() => setFocusMode((current) => !current)} title={focusMode ? "Exit focus mode" : "Focus studio"} aria-label={focusMode ? "Exit focus mode" : "Focus studio"} className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><Focus className="h-3.5 w-3.5" /></button><button onClick={() => setSequenceOpen(true)} title="Open album timeline" aria-label="Open album timeline" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><SlidersHorizontal className="h-3.5 w-3.5" /></button><button onClick={() => setGenerationOpen(true)} title="Open generation center" aria-label="Open generation center" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><ListRestart className="h-3.5 w-3.5" /></button><span className="ml-1 text-[11px] text-[var(--text-muted)]">{project.generatedTracks?.length ?? 0} generated</span></div></div>
+            <div className="flex items-center justify-between gap-3"><SectionTitle label="Tracks & Prompts" icon={<Music2 className="h-4 w-4" />} /><div className="flex items-center gap-1"><button onClick={() => setFocusMode((current) => !current)} title={focusMode ? "Exit focus mode" : "Focus studio"} aria-label={focusMode ? "Exit focus mode" : "Focus studio"} className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><Focus className="h-3.5 w-3.5" /></button><button onClick={() => setSequenceOpen(true)} title="Open video timeline" aria-label="Open video timeline" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><SlidersHorizontal className="h-3.5 w-3.5" /></button><button onClick={() => setGenerationOpen(true)} title="Open generation center" aria-label="Open generation center" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[.05] hover:text-white"><ListRestart className="h-3.5 w-3.5" /></button><span className="ml-1 text-[11px] text-[var(--text-muted)]">{project.generatedTracks?.length ?? 0} generated</span></div></div>
             <div className="grid max-h-[410px] gap-2 overflow-hidden">
               {(project.blueprint?.tracks ?? []).slice(0, 6).map((track, index) => {
                 const generated = project.generatedTracks?.[index];
@@ -889,7 +889,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
         </aside>
       </aside>
       <TrackAuditionDrawer open={Boolean(auditionTrack)} onClose={() => setAuditionTrack(null)} projectId={id} projectTitle={project.title} track={auditionTrack} versions={auditionTrack ? project.trackVersions?.[auditionTrack.title] ?? (project.generatedTracks?.filter((item) => item.title === auditionTrack.title) ?? []) : []} selectedVersion={auditionTrack ? project.generatedTracks?.find((item) => item.title === auditionTrack.title) : undefined} onRefresh={loadProject} onApplyPrompt={applyTrackPrompt} />
-      <SequenceDrawer open={sequenceOpen} onClose={() => setSequenceOpen(false)} tracks={project.blueprint?.tracks ?? []} production={project.production} onSave={saveStudioState} />
+      <SequenceDrawer open={sequenceOpen} onClose={() => setSequenceOpen(false)} projectId={id} projectTitle={project.title} tracks={project.blueprint?.tracks ?? []} production={project.production} artworkAssets={(project.referenceAssets ?? []).filter((asset) => asset.kind === "artwork")} onSave={saveStudioState} onAssetUploaded={loadProject} />
       <GenerationDrawer open={generationOpen} onClose={() => setGenerationOpen(false)} jobs={jobs} services={setup.services} estimatedCost={generationRate === null ? null : generationRate * ((project.blueprint?.tracks.reduce((sum, track) => sum + track.durationSeconds, 0) ?? 0) / 60)} onRefresh={loadProject} />
       <CreativeVariantsDrawer open={creativeOpen} onClose={() => setCreativeOpen(false)} projectId={id} variants={project.creativeVariants} onUseTitle={(title) => applyCreativeVariant("youtubeTitle", title)} onUseThumbnail={(prompt) => applyCreativeVariant("coverPrompt", prompt)} onRefresh={loadProject} />
     </div>

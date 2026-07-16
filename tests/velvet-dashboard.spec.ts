@@ -444,10 +444,17 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Refine" })).toBeVisible();
     await page.getByRole("button", { name: "Close Track audition" }).click();
 
-    await page.getByRole("button", { name: "Open album timeline" }).click();
-    await expect(page.getByRole("dialog", { name: "Album timeline" })).toBeVisible();
+    await page.getByRole("button", { name: "Open video timeline" }).click();
+    await expect(page.getByRole("dialog", { name: "Video timeline" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save timeline" })).toBeVisible();
-    await page.getByRole("button", { name: "Close Album timeline" }).click();
+    const transparency = page.getByRole("slider", { name: "Transparency" });
+    await expect(transparency).toBeVisible();
+    await expect(page.getByRole("button", { name: "velvet" })).toBeVisible();
+    await transparency.fill("64");
+    await page.getByRole("button", { name: "Save timeline" }).click();
+    await expect(page.getByText("Video timeline saved.")).toBeVisible();
+    const savedProject = await (await page.request.get(`/api/projects/${fixtureProjectId}`)).json();
+    expect(savedProject.project.production.overlayOpacity).toBe(64);
 
     await page.getByRole("button", { name: "Open generation center" }).click();
     await expect(page.getByRole("dialog", { name: "Generation center" })).toBeVisible();

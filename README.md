@@ -20,7 +20,8 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Auditions real generated audio in a persistent waveform transport.
 - Retains per-track generation versions for A/B comparison, selection, approval, download, and targeted regeneration.
 - Refines track prompts with OpenAI while preserving the original prompt and explanation in version history.
-- Provides a draggable album timeline with mastering presets, gaps, fades, target loudness, runtime, and scheduled publishing.
+- Provides a draggable video timeline that combines artwork and ordered music with mastering, gaps, fades, target loudness, runtime, and scheduled publishing.
+- Previews and renders Velvet, rose-film, midnight, noir, and monochrome looks with adjustable grain, flicker, vignette, dust, and overlay transparency.
 - Imports audio and artwork references into the protected project export directory.
 - Mirrors generated audio, references, manifests, and rendered video into private S3-compatible storage when server credentials are configured.
 - Restores shared media automatically when Railway web and worker services do not share a local filesystem.
@@ -30,7 +31,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Estimates provider and render costs when optional local rates are configured.
 - Queues music, render, and YouTube upload jobs for a separate Velvet worker process.
 - Supports durable retry, cancellation, deferred upload jobs, and recovery after worker restarts.
-- Runs FFmpeg silence analysis, loudness normalization, fades, and track spacing during release rendering.
+- Runs FFmpeg artwork composition, visual effects, silence analysis, loudness normalization, fades, and track spacing during release rendering.
 - Exports a portable JSON project archive with prompts, jobs, usage, and upload history.
 - Opens Google account sign-in for YouTube, uses PKCE for the authorization code exchange, and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.

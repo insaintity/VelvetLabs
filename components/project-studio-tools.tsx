@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Activity, ArrowDown, ArrowUp, Check, Clock3, Download, FileAudio, GripVertical, ImageIcon, Loader2, Music2, Pause, Play, RefreshCw, RotateCcw, Sparkles, Upload, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, Check, Clock3, Download, Eye, FileAudio, ImageIcon, Layers3, Loader2, Music2, Pause, Play, RefreshCw, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { StatusPill, Waveform } from "@/components/studio-chrome";
 import { formatDuration } from "@/lib/time";
@@ -11,14 +11,30 @@ import { emitToast } from "@/components/toast-system";
 export type StudioTrack = { title: string; durationSeconds: number; prompt: string; mood: string };
 export type StudioVersion = { id?: string; title: string; durationSeconds: number; version?: number; prompt?: string; createdAt?: string; approvedAt?: string };
 export type StudioJob = { id: string; type: string; status: string; message: string; updatedAt?: string };
-export type StudioProduction = { gapSeconds: number; fadeSeconds: number; targetLufs: number; stylePreset?: string; scheduledPublishAt?: string };
+export type StudioProduction = {
+  gapSeconds: number;
+  fadeSeconds: number;
+  targetLufs: number;
+  stylePreset?: string;
+  scheduledPublishAt?: string;
+  artworkAssetId?: string;
+  visualPreset?: "clean" | "velvet" | "rose-film" | "midnight" | "noir" | "mono";
+  filterIntensity?: number;
+  overlayOpacity?: number;
+  grain?: number;
+  flicker?: number;
+  vignette?: number;
+  dust?: number;
+};
+export type StudioArtwork = { id: string; name: string; kind: "audio" | "artwork"; filePath: string; storagePath?: string; createdAt: string };
+const DEFAULT_STUDIO_PRODUCTION: StudioProduction = { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master", visualPreset: "velvet", filterIntensity: 70, overlayOpacity: 55, grain: 18, flicker: 8, vignette: 28, dust: 5 };
 
 function Drawer({ open, onClose, title, icon, children, width = "max-w-[560px]" }: { open: boolean; onClose: () => void; title: string; icon: React.ReactNode; children: React.ReactNode; width?: string }) {
   return (
     <AnimatePresence>
       {open ? (
         <motion.div className="fixed inset-0 z-[70] flex justify-end bg-black/55 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-          <motion.section role="dialog" aria-modal="true" aria-label={title} className={`panel h-full w-full ${width} overflow-hidden rounded-none border-y-0 border-r-0 p-5`} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 28, opacity: 0 }} transition={{ type: "spring", stiffness: 260, damping: 28 }}>
+          <motion.section role="dialog" aria-modal="true" aria-label={title} className={`panel studio-drawer h-full w-full ${width} overflow-hidden rounded-none border-y-0 border-r-0 p-5`} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 28, opacity: 0 }} transition={{ type: "spring", stiffness: 260, damping: 28 }}>
             <div className="flex h-10 items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-white"><span className="text-[var(--rose-soft)]">{icon}</span>{title}</div>
               <button onClick={onClose} title="Close" aria-label={`Close ${title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-white/[0.06] hover:text-white"><X className="h-4 w-4" /></button>
@@ -116,30 +132,104 @@ export function CreativeVariantsDrawer({ open, onClose, projectId, variants, onU
   );
 }
 
-export function SequenceDrawer({ open, onClose, tracks, production, onSave }: { open: boolean; onClose: () => void; tracks: StudioTrack[]; production?: StudioProduction; onSave: (tracks: StudioTrack[], production: StudioProduction) => Promise<void> }) {
+export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks, production, artworkAssets, onSave, onAssetUploaded }: { open: boolean; onClose: () => void; projectId: string; projectTitle: string; tracks: StudioTrack[]; production?: StudioProduction; artworkAssets: StudioArtwork[]; onSave: (tracks: StudioTrack[], production: StudioProduction) => Promise<void>; onAssetUploaded: () => Promise<void> }) {
   const [ordered, setOrdered] = useState(tracks);
-  const [settings, setSettings] = useState<StudioProduction>(production ?? { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master" });
-  useEffect(() => { setOrdered(tracks); setSettings(production ?? { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master" }); }, [production, tracks]);
-  function move(index: number, direction: -1 | 1) { const next = [...ordered]; const target = index + direction; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; setOrdered(next); }
+  const [settings, setSettings] = useState<StudioProduction>({ ...DEFAULT_STUDIO_PRODUCTION, ...production });
+  const [previewing, setPreviewing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      setOrdered(tracks);
+      setSettings({ ...DEFAULT_STUDIO_PRODUCTION, ...production });
+    }
+    wasOpen.current = open;
+  }, [open, production, tracks]);
   const total = ordered.reduce((sum, track) => sum + track.durationSeconds, 0) + Math.max(0, ordered.length - 1) * settings.gapSeconds;
+  const art = artworkAssets.find((asset) => asset.id === settings.artworkAssetId) ?? artworkAssets[0];
+  const overlayStrength = (settings.overlayOpacity ?? 55) / 100;
+  const previewStyle = {
+    filter: previewFilter(settings.visualPreset ?? "velvet", (settings.filterIntensity ?? 70) / 100),
+    "--grain-opacity": String(((settings.grain ?? 0) / 100) * overlayStrength),
+    "--flicker-opacity": String(((settings.flicker ?? 0) / 100) * overlayStrength),
+    "--vignette-opacity": String(((settings.vignette ?? 0) / 100) * overlayStrength),
+    "--dust-opacity": String(((settings.dust ?? 0) / 100) * overlayStrength)
+  } as React.CSSProperties & Record<string, string>;
+
+  async function uploadArtwork(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    const form = new FormData(); form.set("projectId", projectId); form.set("file", file);
+    const response = await fetch("/api/assets", { method: "POST", body: form });
+    const data = await response.json();
+    setUploading(false);
+    if (!response.ok) return emitToast(data.error ?? "Artwork upload failed.", "error");
+    emitToast("Artwork added to the timeline.", "success");
+    await onAssetUploaded();
+    setSettings((current) => ({ ...current, artworkAssetId: data.asset.id }));
+  }
+
   return (
-    <Drawer open={open} onClose={onClose} title="Album timeline" icon={<Activity className="h-4 w-4" />} width="max-w-[620px]">
-      <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto] gap-4 pt-4">
-        <div className="space-y-3 rounded-xl bg-black/20 p-3 ring-1 ring-inset ring-[var(--border)]">
-          <div className="grid grid-cols-4 gap-2"><CompactNumber label="Gap" value={settings.gapSeconds} min={0} max={10} step={0.5} suffix="s" onChange={(gapSeconds) => setSettings({ ...settings, gapSeconds })} /><CompactNumber label="Fade" value={settings.fadeSeconds} min={0} max={5} step={0.1} suffix="s" onChange={(fadeSeconds) => setSettings({ ...settings, fadeSeconds })} /><CompactNumber label="Loudness" value={settings.targetLufs} min={-24} max={-8} step={1} suffix=" LUFS" onChange={(targetLufs) => setSettings({ ...settings, targetLufs })} /><div><div className="text-[9px] uppercase tracking-[.12em] text-[var(--text-muted)]">Runtime</div><div className="mt-2 text-sm text-white">{formatDuration(total)}</div></div></div>
-          <div className="flex gap-1.5">{["Studio master", "Warm vinyl", "Broadcast clean"].map((preset) => <button key={preset} onClick={() => setSettings({ ...settings, stylePreset: preset })} className={`h-8 flex-1 rounded-lg text-[10px] ${settings.stylePreset === preset ? "bg-[rgba(239,99,152,.14)] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-white/[.035] text-[var(--text-muted)]"}`}>{preset}</button>)}</div>
+    <Drawer open={open} onClose={onClose} title="Video timeline" icon={<Activity className="h-4 w-4" />} width="max-w-[980px]">
+      <div className="grid h-full grid-rows-[minmax(0,1fr)_164px_48px] gap-3 pt-3">
+        <div className="grid min-h-0 grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)] gap-3">
+          <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_42px] overflow-hidden rounded-xl bg-black/30 ring-1 ring-inset ring-[var(--border)]">
+            <div className="video-preview relative isolate min-h-0 overflow-hidden bg-[#090a10]" style={previewStyle}>
+              {art ? <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(/api/assets?projectId=${encodeURIComponent(projectId)}&assetId=${encodeURIComponent(art.id)})` }} /> : <div className="absolute inset-0 grid place-items-center"><div className="text-center"><ImageIcon className="mx-auto h-7 w-7 text-[var(--text-muted)]" /><div className="mt-3 font-serif text-3xl text-white">{projectTitle}</div><div className="mt-1 text-[10px] uppercase tracking-[.16em] text-[var(--text-muted)]">Add artwork to begin</div></div></div>}
+              <div className="video-grain absolute inset-0" /><div className="video-flicker absolute inset-0" /><div className="video-vignette absolute inset-0" /><div className="video-dust absolute inset-0" />
+              <motion.div className="absolute bottom-0 top-0 z-20 w-px bg-white/80 shadow-[0_0_8px_rgba(255,255,255,.7)]" initial={false} animate={{ left: previewing ? ["0%", "100%"] : "0%" }} transition={previewing ? { duration: 8, ease: "linear", repeat: Infinity } : { duration: 0.2 }} />
+            </div>
+            <div className="flex items-center justify-between border-t border-[var(--border)] px-3">
+              <button onClick={() => setPreviewing((current) => !current)} className="flex h-8 items-center gap-2 rounded-lg bg-white/[.06] px-3 text-xs text-white">{previewing ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}{previewing ? "Pause preview" : "Preview motion"}</button>
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[.12em] text-[var(--text-muted)]"><Eye className="h-3.5 w-3.5" />16:9 · 1080p · {formatDuration(total)}</div>
+            </div>
+          </section>
+
+          <section className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 rounded-xl bg-[#1a1725] p-3 ring-1 ring-inset ring-[var(--border)]">
+            <div>
+              <div className="flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Artwork</span><label title="Upload artwork" className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md bg-white/[.05] px-2 text-[10px] hover:bg-white/[.08]">{uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}Add<input type="file" accept="image/*" className="hidden" onChange={(event) => uploadArtwork(event.target.files?.[0])} /></label></div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">{artworkAssets.slice(0, 3).map((asset) => <button key={asset.id} title={asset.name} onClick={() => setSettings({ ...settings, artworkAssetId: asset.id })} className={`h-9 truncate rounded-lg px-2 text-[10px] ${art?.id === asset.id ? "bg-[rgba(239,99,152,.15)] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)]"}`}>{asset.name}</button>)}{!artworkAssets.length ? <div className="col-span-3 grid h-9 place-items-center rounded-lg bg-black/20 text-[10px] text-[var(--text-muted)]">No artwork uploaded</div> : null}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Velvet looks</div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">{(["clean", "velvet", "rose-film", "midnight", "noir", "mono"] as const).map((preset) => <button key={preset} onClick={() => setSettings({ ...settings, visualPreset: preset })} className={`h-8 rounded-lg text-[10px] capitalize ${settings.visualPreset === preset ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)] hover:text-white"}`}>{preset.replace("-", " ")}</button>)}</div>
+            </div>
+            <div className="grid min-h-0 content-start gap-2">
+              <EffectSlider label="Look" value={settings.filterIntensity ?? 70} onChange={(filterIntensity) => setSettings({ ...settings, filterIntensity })} />
+              <EffectSlider label="Transparency" value={settings.overlayOpacity ?? 55} onChange={(overlayOpacity) => setSettings({ ...settings, overlayOpacity })} />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2"><EffectSlider label="Grain" value={settings.grain ?? 18} onChange={(grain) => setSettings({ ...settings, grain })} /><EffectSlider label="Flicker" value={settings.flicker ?? 8} onChange={(flicker) => setSettings({ ...settings, flicker })} /><EffectSlider label="Vignette" value={settings.vignette ?? 28} onChange={(vignette) => setSettings({ ...settings, vignette })} /><EffectSlider label="Dust" value={settings.dust ?? 5} onChange={(dust) => setSettings({ ...settings, dust })} /></div>
+            </div>
+          </section>
         </div>
-        <Reorder.Group axis="y" values={ordered} onReorder={setOrdered} className="grid min-h-0 content-start gap-2 overflow-hidden">
-          {ordered.slice(0, 10).map((track, index) => (
-            <Reorder.Item value={track} layout key={`${track.title}-${index}`} whileDrag={{ scale: 1.015, backgroundColor: "rgba(239,99,152,.09)" }} className="grid h-12 cursor-grab grid-cols-[18px_30px_minmax(0,1fr)_70px] items-center gap-2 rounded-lg bg-white/[.025] px-3 ring-1 ring-inset ring-[var(--border)] active:cursor-grabbing">
-              <GripVertical className="h-3.5 w-3.5 text-[var(--text-muted)]" /><span className="tabular text-xs text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span><div className="truncate text-sm text-white">{track.title}</div><div className="flex justify-end gap-1"><button onPointerDown={(event) => event.stopPropagation()} onClick={() => move(index, -1)} title="Move up" aria-label={`Move ${track.title} up`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-white/[.07]"><ArrowUp className="h-3.5 w-3.5" /></button><button onPointerDown={(event) => event.stopPropagation()} onClick={() => move(index, 1)} title="Move down" aria-label={`Move ${track.title} down`} className="grid h-7 w-7 place-items-center rounded-md hover:bg-white/[.07]"><ArrowDown className="h-3.5 w-3.5" /></button></div>
-            </Reorder.Item>
-          ))}
-        </Reorder.Group>
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3"><label className="text-[10px] uppercase tracking-[.12em] text-[var(--text-muted)]">Schedule publish<input type="datetime-local" value={settings.scheduledPublishAt?.slice(0, 16) ?? ""} onChange={(event) => setSettings({ ...settings, scheduledPublishAt: event.target.value ? new Date(event.target.value).toISOString() : undefined })} className="mt-1.5 h-10 w-full rounded-lg bg-black/20 px-3 text-xs normal-case text-white ring-1 ring-inset ring-[var(--border)]" /></label><button onClick={() => onSave(ordered, settings)} className="h-10 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">Save timeline</button></div>
+
+        <section className="relative grid grid-rows-3 gap-2 rounded-xl bg-[#11101a] p-3 ring-1 ring-inset ring-[var(--border)]">
+          <TimelineLane label="VISUAL" icon={<ImageIcon className="h-3 w-3" />}><div className="h-full rounded-md border border-[rgba(190,137,232,.26)] bg-[rgba(190,137,232,.11)] px-3 text-[10px] leading-8 text-white">{art?.name ?? "Artwork placeholder"}</div></TimelineLane>
+          <TimelineLane label="MUSIC" icon={<Music2 className="h-3 w-3" />}><Reorder.Group axis="x" values={ordered} onReorder={setOrdered} className="flex h-full min-w-0 gap-1">{ordered.map((track, index) => <Reorder.Item value={track} key={track.title} title={`${track.title} · drag to reorder`} className="group relative min-w-[52px] cursor-grab overflow-hidden rounded-md border border-[rgba(88,182,168,.28)] bg-[rgba(88,182,168,.1)] px-2 active:cursor-grabbing" style={{ flexGrow: track.durationSeconds, flexBasis: 0 }}><div className="truncate text-[9px] leading-8 text-white">{String(index + 1).padStart(2, "0")} {track.title}</div><div className="absolute inset-x-1 bottom-1 flex h-1 items-end gap-px">{[3,7,4,9,5,8,3,6,4,8,5,7].map((height, bar) => <i key={bar} className="flex-1 bg-[rgba(136,222,206,.55)]" style={{ height }} />)}</div></Reorder.Item>)}</Reorder.Group></TimelineLane>
+          <TimelineLane label="FX" icon={<Layers3 className="h-3 w-3" />}><div className="flex h-full gap-1">{[["Grain", settings.grain], ["Flicker", settings.flicker], ["Vignette", settings.vignette], ["Dust", settings.dust]].filter(([, value]) => Number(value) > 0).map(([label, value]) => <div key={String(label)} className="h-full min-w-20 flex-1 rounded-md border border-[rgba(239,99,152,.24)] bg-[rgba(239,99,152,.09)] px-2 text-[9px] leading-8 text-[var(--rose-soft)]">{label} {value}%</div>)}</div></TimelineLane>
+        </section>
+
+        <div className="grid grid-cols-[auto_auto_auto_minmax(180px,1fr)_auto] items-end gap-3"><CompactNumber label="Gap" value={settings.gapSeconds} min={0} max={10} step={0.5} suffix="s" onChange={(gapSeconds) => setSettings({ ...settings, gapSeconds })} /><CompactNumber label="Fade" value={settings.fadeSeconds} min={0} max={5} step={0.1} suffix="s" onChange={(fadeSeconds) => setSettings({ ...settings, fadeSeconds })} /><CompactNumber label="Loudness" value={settings.targetLufs} min={-24} max={-8} step={1} suffix=" LUFS" onChange={(targetLufs) => setSettings({ ...settings, targetLufs })} /><label className="text-[9px] uppercase tracking-[.12em] text-[var(--text-muted)]">Schedule publish<input type="datetime-local" value={settings.scheduledPublishAt?.slice(0, 16) ?? ""} onChange={(event) => setSettings({ ...settings, scheduledPublishAt: event.target.value ? new Date(event.target.value).toISOString() : undefined })} className="mt-1 h-8 w-full rounded-lg bg-black/20 px-3 text-xs normal-case text-white ring-1 ring-inset ring-[var(--border)]" /></label><button onClick={() => onSave(ordered, { ...settings, artworkAssetId: art?.id })} className="h-10 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">Save timeline</button></div>
       </div>
     </Drawer>
   );
+}
+
+function TimelineLane({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return <div className="grid min-h-0 grid-cols-[68px_minmax(0,1fr)] items-stretch gap-2"><div className="flex items-center gap-1.5 text-[9px] font-semibold tracking-[.13em] text-[var(--text-muted)]">{icon}{label}</div><div className="min-w-0">{children}</div></div>;
+}
+
+function EffectSlider({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return <label className="grid grid-cols-[74px_minmax(0,1fr)_28px] items-center gap-2 text-[9px] uppercase tracking-[.1em] text-[var(--text-muted)]"><span>{label}</span><input aria-label={label} type="range" min="0" max="100" value={value} onChange={(event) => onChange(Number(event.target.value))} className="velvet-range h-1 w-full" /><span className="tabular text-right text-[9px] text-[var(--text-secondary)]">{value}</span></label>;
+}
+
+function previewFilter(preset: NonNullable<StudioProduction["visualPreset"]>, intensity: number) {
+  const amount = Math.max(0, Math.min(1, intensity));
+  if (preset === "clean") return "none";
+  if (preset === "mono") return `grayscale(${amount}) contrast(${1 + amount * 0.13})`;
+  if (preset === "noir") return `grayscale(${amount * 0.72}) contrast(${1 + amount * 0.24}) brightness(${1 - amount * 0.04})`;
+  if (preset === "rose-film") return `sepia(${amount * 0.18}) saturate(${1 - amount * 0.08}) contrast(${1 + amount * 0.09}) hue-rotate(${-amount * 8}deg)`;
+  if (preset === "midnight") return `saturate(${1 - amount * 0.18}) contrast(${1 + amount * 0.18}) brightness(${1 - amount * 0.07}) hue-rotate(${amount * 12}deg)`;
+  return `saturate(${1 + amount * 0.12}) contrast(${1 + amount * 0.12}) brightness(${1 - amount * 0.03}) hue-rotate(${amount * 4}deg)`;
 }
 
 function CompactNumber({ label, value, min, max, step, suffix, onChange }: { label: string; value: number; min: number; max: number; step: number; suffix: string; onChange: (value: number) => void }) {
