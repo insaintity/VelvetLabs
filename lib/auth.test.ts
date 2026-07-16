@@ -1,31 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { authIsRequired, createSessionToken, passwordMatches, verifySessionToken } from "./auth";
+import { authIsRequired, createSessionToken, passwordMatches, usernameMatches, velvetAccountMatches, verifySessionToken } from "./auth";
 
 const originalNodeEnv = process.env.NODE_ENV;
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 describe("private studio authentication", () => {
   beforeEach(() => {
+    process.env.VELVET_ADMIN_USERNAME = "luna";
     process.env.VELVET_ADMIN_PASSWORD = "velvet-test-password";
     process.env.VELVET_SESSION_SECRET = "velvet-test-session-secret";
   });
 
   afterEach(() => {
+    delete process.env.VELVET_ADMIN_USERNAME;
     delete process.env.VELVET_ADMIN_PASSWORD;
     delete process.env.VELVET_SESSION_SECRET;
     delete process.env.VELVET_DESKTOP;
     mutableEnv.NODE_ENV = originalNodeEnv;
   });
 
-  it("accepts only the configured password", async () => {
+  it("accepts only the configured Velvet account", async () => {
+    await expect(usernameMatches("luna")).resolves.toBe(true);
+    await expect(usernameMatches("LUNA")).resolves.toBe(true);
+    await expect(usernameMatches("noir")).resolves.toBe(false);
     await expect(passwordMatches("velvet-test-password")).resolves.toBe(true);
     await expect(passwordMatches("not-the-password")).resolves.toBe(false);
+    await expect(velvetAccountMatches("luna", "velvet-test-password")).resolves.toBe(true);
+    await expect(velvetAccountMatches("noir", "velvet-test-password")).resolves.toBe(false);
   });
 
-  it("uses Enter as the default studio password", async () => {
+  it("uses velvet and Enter as the default account", async () => {
+    delete process.env.VELVET_ADMIN_USERNAME;
     delete process.env.VELVET_ADMIN_PASSWORD;
+    await expect(usernameMatches("velvet")).resolves.toBe(true);
+    await expect(usernameMatches("Velvet")).resolves.toBe(true);
     await expect(passwordMatches("Enter")).resolves.toBe(true);
     await expect(passwordMatches("enter")).resolves.toBe(false);
+    await expect(velvetAccountMatches("velvet", "Enter")).resolves.toBe(true);
   });
 
   it("verifies active sessions and rejects tampering or expiry", async () => {

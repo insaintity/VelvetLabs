@@ -1,5 +1,6 @@
 export const VELVET_SESSION_COOKIE = "velvet_session";
 const SESSION_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
+const DEFAULT_ADMIN_USERNAME = "velvet";
 const DEFAULT_STUDIO_PASSWORD = "Enter";
 
 export function authIsConfigured() {
@@ -8,12 +9,22 @@ export function authIsConfigured() {
 
 export function authIsRequired() {
   if (process.env.VELVET_DESKTOP === "1") return false;
-  return process.env.NODE_ENV === "production" || Boolean(process.env.VELVET_ADMIN_PASSWORD);
+  return process.env.NODE_ENV === "production" || Boolean(process.env.VELVET_ADMIN_USERNAME || process.env.VELVET_ADMIN_PASSWORD);
 }
 
 export async function passwordMatches(candidate: string) {
   const expected = process.env.VELVET_ADMIN_PASSWORD || DEFAULT_STUDIO_PASSWORD;
   return constantTimeEqual(await digest(candidate), await digest(expected));
+}
+
+export async function usernameMatches(candidate: string) {
+  const expected = process.env.VELVET_ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME;
+  return constantTimeEqual(await digest(candidate.trim().toLowerCase()), await digest(expected.trim().toLowerCase()));
+}
+
+export async function velvetAccountMatches(username: string, password: string) {
+  const [validUsername, validPassword] = await Promise.all([usernameMatches(username), passwordMatches(password)]);
+  return validUsername && validPassword;
 }
 
 export async function createSessionToken(now = Date.now()) {

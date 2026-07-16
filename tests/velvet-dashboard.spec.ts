@@ -61,10 +61,11 @@ async function writeFixtureDatabase() {
 }
 
 test.describe("Velvet dashboard", () => {
-  test("centers the private login and accepts the default password", async ({ page }) => {
+  test("centers the Velvet account login and accepts the default account", async ({ page }) => {
     await page.goto("/login");
-    const loginCard = page.getByRole("region", { name: "Private studio login" });
+    const loginCard = page.getByRole("region", { name: "Velvet account login" });
     await expect(loginCard).toBeVisible();
+    await expect(page.getByLabel("Username")).toHaveValue("velvet");
     await expect(page.getByPlaceholder("Enter")).toBeVisible();
 
     const cardBox = await loginCard.boundingBox();
@@ -73,8 +74,8 @@ test.describe("Velvet dashboard", () => {
     expect(Math.abs((cardBox!.x + cardBox!.width / 2) - viewport.width / 2)).toBeLessThanOrEqual(2);
     expect(Math.abs((cardBox!.y + cardBox!.height / 2) - viewport.height / 2)).toBeLessThanOrEqual(2);
 
-    await page.getByLabel("Studio password").fill("Enter");
-    await page.getByRole("button", { name: "Enter studio" }).click();
+    await page.getByLabel("Password").fill("Enter");
+    await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
   });
 
