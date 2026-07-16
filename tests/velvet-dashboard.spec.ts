@@ -544,9 +544,14 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "+ grain" })).toBeVisible();
     await page.getByRole("button", { name: "+ grain" }).click();
     await expect(page.getByText("Grain effect added.")).toBeVisible();
+    await expect(page.getByTitle("Drag effect").first()).toBeVisible();
+    await page.getByText("Grain 18%").first().click({ button: "right" });
+    await expect(page.getByRole("menu", { name: "Timeline clip menu" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Cut here" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    await page.getByRole("menuitem", { name: "Cut here" }).click();
+    await expect(page.getByText("Effect split. Shortcut: S")).toBeVisible();
     await expect(page.getByRole("button", { name: /25% 50% 75%/ })).toBeVisible();
-    await page.keyboard.press("s");
-    await expect(page.getByText("Select audio or the video lane before cutting.")).toBeVisible();
     await page.getByText("Artwork placeholder").click();
     await page.keyboard.press("s");
     await expect(page.getByText("Video/Image lane split. Shortcut: S")).toBeVisible();
