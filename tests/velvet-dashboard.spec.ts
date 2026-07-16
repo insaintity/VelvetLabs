@@ -497,7 +497,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("VIDEO/IMAGE", { exact: true })).toBeVisible();
     await expect(page.getByText("EFFECT", { exact: true })).toBeVisible();
     await expect(page.getByText("AUDIO", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Cut" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cut (S)" })).toBeVisible();
     const transparency = page.getByRole("slider", { name: "Transparency" });
     await expect(transparency).toBeVisible();
     await expect(page.getByRole("button", { name: "velvet" })).toBeVisible();
@@ -534,6 +534,12 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("AUDIO", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Fit crop" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Remove audio" })).toBeVisible();
+    await page.keyboard.press("s");
+    await expect(page.getByText("Select audio or the video lane before cutting.")).toBeVisible();
+    await page.getByText("Artwork placeholder").click();
+    await page.keyboard.press("s");
+    await expect(page.getByText("Video/Image lane split. Shortcut: S")).toBeVisible();
+    await expect(page.getByText("Cut 2")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save timeline" })).toBeVisible();
   });
 
