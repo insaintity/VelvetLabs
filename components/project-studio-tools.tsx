@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeft, Check, Clipboard, Clock3, Copy, Crop, Download, Eye, FileAudio, ImageIcon, Layers3, Loader2, Music2, Pause, Play, RefreshCw, RotateCcw, Scissors, Sparkles, Upload, VolumeX, X } from "lucide-react";
+import { Activity, ArrowLeft, Check, Clipboard, Clock3, Copy, Crop, Download, Eye, FileAudio, ImageIcon, Layers3, Loader2, Music2, Pause, Play, Redo2, RefreshCw, RotateCcw, Scissors, Sparkles, Trash2, Undo2, Upload, VolumeX, X } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { StatusPill, Waveform } from "@/components/studio-chrome";
 import { formatDuration } from "@/lib/time";
@@ -28,6 +28,7 @@ export type StudioProduction = {
 };
 export type StudioArtwork = { id: string; name: string; kind: "audio" | "artwork"; filePath: string; storagePath?: string; previewUrl?: string; createdAt: string };
 type VideoSegment = { id: string; label: string; duration: number };
+type EditorSnapshot = { ordered: StudioTrack[]; videoSegments: VideoSegment[] };
 const DEFAULT_STUDIO_PRODUCTION: StudioProduction = { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master", visualPreset: "velvet", filterIntensity: 70, overlayOpacity: 55, grain: 18, flicker: 8, vignette: 28, dust: 5 };
 
 function Drawer({ open, onClose, title, icon, children, width = "max-w-[560px]" }: { open: boolean; onClose: () => void; title: string; icon: React.ReactNode; children: React.ReactNode; width?: string }) {
@@ -155,6 +156,9 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>(() => [{ id: crypto.randomUUID(), label: "Artwork placeholder", duration: 1 }]);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [cutFraction, setCutFraction] = useState(0.5);
+  const [playheadFraction, setPlayheadFraction] = useState(0);
+  const [undoStack, setUndoStack] = useState<EditorSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<EditorSnapshot[]>([]);
   const wasOpen = useRef(false);
   useEffect(() => {
     const active = standalone || open;
@@ -238,7 +242,32 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const activeTrack = ordered[activeTrackIndex];
   const activeVideoIndex = Math.min(Math.max(0, selectedVideoIndex), Math.max(0, videoSegments.length - 1));
   const activeVideo = videoSegments[activeVideoIndex];
+  const selectedDuration = selectedLane === "video" ? activeVideo?.duration : activeTrack?.durationSeconds;
+  const assetNames = [...effectiveArtworkAssets.map((asset) => asset.name), ...ordered.map((track) => track.title)];
+  const rememberEdit = useCallback(() => {
+    setUndoStack((current) => [...current.slice(-24), { ordered, videoSegments }]);
+    setRedoStack([]);
+  }, [ordered, videoSegments]);
+  const undoEdit = useCallback(() => {
+    const snapshot = undoStack.at(-1);
+    if (!snapshot) return emitToast("Nothing to undo.", "error");
+    setRedoStack((current) => [...current, { ordered, videoSegments }]);
+    setOrdered(snapshot.ordered);
+    setVideoSegments(snapshot.videoSegments);
+    setUndoStack((current) => current.slice(0, -1));
+    emitToast("Undo applied.", "success");
+  }, [ordered, undoStack, videoSegments]);
+  const redoEdit = useCallback(() => {
+    const snapshot = redoStack.at(-1);
+    if (!snapshot) return emitToast("Nothing to redo.", "error");
+    setUndoStack((current) => [...current, { ordered, videoSegments }]);
+    setOrdered(snapshot.ordered);
+    setVideoSegments(snapshot.videoSegments);
+    setRedoStack((current) => current.slice(0, -1));
+    emitToast("Redo applied.", "success");
+  }, [ordered, redoStack, videoSegments]);
   const cutActiveTrack = useCallback(() => {
+    rememberEdit();
     if (selectedLane === "video") {
       setVideoSegments((current) => {
         const segment = current[activeVideoIndex];
@@ -261,7 +290,7 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
     setOrdered((current) => current.flatMap((track, index) => index === activeTrackIndex ? [{ ...track, durationSeconds: left, title: `${track.title} A` }, { ...track, durationSeconds: right, title: `${track.title} B` }] : [track]));
     setSelectedTrackIndex(activeTrackIndex + 1);
     emitToast("Audio clip split. Shortcut: S", "success");
-  }, [activeTrack, activeTrackIndex, activeVideoIndex, cutFraction, selectedLane]);
+  }, [activeTrack, activeTrackIndex, activeVideoIndex, cutFraction, rememberEdit, selectedLane]);
   function copyActiveTrack() {
     if (!activeTrack) return emitToast("Add audio before copying.", "error");
     setCopiedTrack(activeTrack);
@@ -269,36 +298,74 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   }
   function pasteCopiedTrack() {
     if (!copiedTrack) return emitToast("Copy an audio clip first.", "error");
+    rememberEdit();
     setOrdered((current) => [...current, { ...copiedTrack, title: `${copiedTrack.title} copy` }]);
     setSelectedTrackIndex(ordered.length);
     emitToast("Audio clip pasted.", "success");
   }
   function reverseAudio() {
     if (ordered.length < 2) return emitToast("Add at least two audio clips to reverse.", "error");
+    rememberEdit();
     setOrdered((current) => [...current].reverse());
     setSelectedTrackIndex(0);
     emitToast("Audio order reversed.", "success");
   }
   function removeAudio() {
     if (!ordered.length) return emitToast("No audio clips to remove.", "error");
+    rememberEdit();
     setOrdered([]);
     setSelectedTrackIndex(0);
     emitToast("Audio lane cleared.", "success");
+  }
+  const deleteSelected = useCallback(() => {
+    if (selectedLane === "video") {
+      if (videoSegments.length <= 1) return emitToast("Keep at least one video/image segment.", "error");
+      rememberEdit();
+      setVideoSegments((current) => current.filter((_, index) => index !== activeVideoIndex));
+      setSelectedVideoIndex(Math.max(0, activeVideoIndex - 1));
+      emitToast("Video/Image segment deleted.", "success");
+      return;
+    }
+    if (!ordered.length) return emitToast("No audio clip selected.", "error");
+    rememberEdit();
+    setOrdered((current) => current.filter((_, index) => index !== activeTrackIndex));
+    setSelectedTrackIndex(Math.max(0, activeTrackIndex - 1));
+    emitToast("Audio clip deleted.", "success");
+  }, [activeTrackIndex, activeVideoIndex, ordered.length, rememberEdit, selectedLane, videoSegments.length]);
+  function trimSelected(delta: number) {
+    rememberEdit();
+    if (selectedLane === "video") {
+      setVideoSegments((current) => current.map((segment, index) => index === activeVideoIndex ? { ...segment, duration: Math.max(0.2, segment.duration + delta) } : segment));
+      return;
+    }
+    setOrdered((current) => current.map((track, index) => index === activeTrackIndex ? { ...track, durationSeconds: Math.max(1, track.durationSeconds + Math.round(delta * 12)) } : track));
   }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const isTyping = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
-      if (isTyping || event.ctrlKey || event.metaKey || event.altKey || event.key.toLowerCase() !== "s") return;
-      event.preventDefault();
-      cutActiveTrack();
+      if (isTyping || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && key === "z") {
+        event.preventDefault();
+        undoEdit();
+      } else if ((event.ctrlKey || event.metaKey) && key === "y") {
+        event.preventDefault();
+        redoEdit();
+      } else if (!event.ctrlKey && !event.metaKey && key === "s") {
+        event.preventDefault();
+        cutActiveTrack();
+      } else if (!event.ctrlKey && !event.metaKey && (key === "delete" || key === "backspace")) {
+        event.preventDefault();
+        deleteSelected();
+      }
     };
     const active = standalone || open;
     if (!active) return;
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cutActiveTrack, open, standalone]);
+  }, [cutActiveTrack, deleteSelected, open, redoEdit, standalone, undoEdit]);
 
   const editor = (
       <div
@@ -326,6 +393,10 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
             <div>
               <div className="flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Media</span><label title="Upload media" className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md bg-white/[.05] px-2 text-[10px] hover:bg-white/[.08]">{uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}Add<input type="file" accept="image/*,audio/*" multiple className="hidden" onChange={(event) => importFiles(Array.from(event.target.files ?? [])).catch(() => emitToast("Media could not be imported.", "error"))} /></label></div>
               <div className="mt-2 grid grid-cols-3 gap-1.5">{effectiveArtworkAssets.slice(0, 3).map((asset) => <button key={asset.id} title={asset.name} onClick={() => setSettings({ ...settings, artworkAssetId: asset.id })} className={`h-9 truncate rounded-lg px-2 text-[10px] ${art?.id === asset.id ? "bg-[rgba(239,99,152,.15)] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)]"}`}>{asset.name}</button>)}{!effectiveArtworkAssets.length ? <div className="col-span-3 grid h-9 place-items-center rounded-lg bg-black/20 text-[10px] text-[var(--text-muted)]">Drop or add artwork</div> : null}</div>
+              <div className="mt-3 rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
+                <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Asset bin</div>
+                <div className="mt-2 grid gap-1">{assetNames.length ? assetNames.slice(0, 5).map((name) => <div key={name} className="truncate rounded bg-white/[.035] px-2 py-1.5 text-[10px] text-[var(--text-secondary)]">{name}</div>) : <div className="text-[10px] text-[var(--text-muted)]">Upload or drag files to fill the bin.</div>}</div>
+              </div>
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Velvet looks</div>
@@ -335,24 +406,32 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
               <EffectSlider label="Look" value={settings.filterIntensity ?? 70} onChange={(filterIntensity) => setSettings({ ...settings, filterIntensity })} />
               <EffectSlider label="Transparency" value={settings.overlayOpacity ?? 55} onChange={(overlayOpacity) => setSettings({ ...settings, overlayOpacity })} />
               <div className="grid grid-cols-2 gap-x-3 gap-y-2"><EffectSlider label="Grain" value={settings.grain ?? 18} onChange={(grain) => setSettings({ ...settings, grain })} /><EffectSlider label="Flicker" value={settings.flicker ?? 8} onChange={(flicker) => setSettings({ ...settings, flicker })} /><EffectSlider label="Vignette" value={settings.vignette ?? 28} onChange={(vignette) => setSettings({ ...settings, vignette })} /><EffectSlider label="Dust" value={settings.dust ?? 5} onChange={(dust) => setSettings({ ...settings, dust })} /></div>
+              <div className="rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
+                <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Clip properties</div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)]"><span>Lane</span><span className="text-right capitalize text-white">{selectedLane}</span><span>Duration</span><span className="text-right text-white">{selectedDuration ? formatDuration(selectedLane === "video" ? Math.round(selectedDuration * 30) : selectedDuration) : "0:00"}</span><span>Cut point</span><span className="text-right text-white">{Math.round(cutFraction * 100)}%</span></div>
+              </div>
             </div>
           </section>
         </div>
 
         <div className="flex items-center gap-2 rounded-xl bg-black/20 px-3 ring-1 ring-inset ring-[var(--border)]">
+          <EditorTool icon={<Undo2 className="h-3.5 w-3.5" />} label="Undo" onClick={undoEdit} />
+          <EditorTool icon={<Redo2 className="h-3.5 w-3.5" />} label="Redo" onClick={redoEdit} />
           <EditorTool icon={<Crop className="h-3.5 w-3.5" />} label={cropMode === "fill" ? "Fit crop" : "Fill crop"} onClick={() => { setCropMode((mode) => mode === "fill" ? "fit" : "fill"); emitToast(cropMode === "fill" ? "Preview set to fit." : "Preview set to fill.", "success"); }} />
           <EditorTool icon={<Scissors className="h-3.5 w-3.5" />} label="Cut (S)" onClick={cutActiveTrack} />
           <EditorTool icon={<Copy className="h-3.5 w-3.5" />} label="Copy" onClick={copyActiveTrack} />
           <EditorTool icon={<Clipboard className="h-3.5 w-3.5" />} label="Paste" onClick={pasteCopiedTrack} />
           <EditorTool icon={<RotateCcw className="h-3.5 w-3.5" />} label="Reverse" onClick={reverseAudio} />
+          <EditorTool icon={<Trash2 className="h-3.5 w-3.5" />} label="Delete" onClick={deleteSelected} danger />
           <EditorTool icon={<VolumeX className="h-3.5 w-3.5" />} label="Remove audio" onClick={removeAudio} danger />
           <div className="ml-auto truncate text-[10px] uppercase tracking-[.12em] text-[var(--text-muted)]">{selectedLane === "video" ? `Selected: ${activeVideo?.label ?? "Video/Image lane"}` : activeTrack ? `Selected: ${activeTrack.title}` : "No audio selected"} - Cut at {Math.round(cutFraction * 100)}% - Press S</div>
         </div>
 
-        <section className="relative grid grid-rows-3 gap-2 rounded-xl bg-[#11101a] p-3 ring-1 ring-inset ring-[var(--border)]">
-          <TimelineLane label="VIDEO/IMAGE" icon={<ImageIcon className="h-3 w-3" />}><Reorder.Group axis="x" values={videoSegments} onReorder={setVideoSegments} className="flex h-full min-w-0 gap-1">{videoSegments.map((segment, index) => <Reorder.Item value={segment} key={segment.id} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("video"); setSelectedVideoIndex(index); setCutFraction(pointerFraction(event)); }} className={`relative h-full min-w-16 cursor-grab overflow-hidden rounded-md border px-2 text-left active:cursor-grabbing ${selectedLane === "video" && index === activeVideoIndex ? "border-[var(--border-active)] bg-[rgba(190,137,232,.18)]" : "border-[rgba(190,137,232,.26)] bg-[rgba(190,137,232,.11)]"}`} style={{ flexGrow: segment.duration, flexBasis: 0 }}><div className="truncate text-[10px] leading-8 text-white">{index === 0 && art?.name ? art.name : segment.label}</div>{selectedLane === "video" && index === activeVideoIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>)}</Reorder.Group></TimelineLane>
+        <section className="relative grid grid-rows-[22px_repeat(3,minmax(0,1fr))] gap-2 rounded-xl bg-[#11101a] p-3 ring-1 ring-inset ring-[var(--border)]">
+          <button type="button" onClick={(event) => setPlayheadFraction(pointerFraction(event))} className="relative ml-[112px] rounded bg-black/25 text-left ring-1 ring-inset ring-[var(--border)]"><span className="absolute inset-y-0 w-px bg-[var(--rose-soft)]" style={{ left: `${playheadFraction * 100}%` }} /><span className="grid h-full grid-cols-5 px-2 text-[9px] text-[var(--text-muted)]"><i>0:00</i><i>25%</i><i>50%</i><i>75%</i><i className="text-right">{formatDuration(total)}</i></span></button>
+          <TimelineLane label="VIDEO/IMAGE" icon={<ImageIcon className="h-3 w-3" />}><Reorder.Group axis="x" values={videoSegments} onReorder={(next) => { rememberEdit(); setVideoSegments(next); }} className="flex h-full min-w-0 gap-1">{videoSegments.map((segment, index) => <Reorder.Item value={segment} key={segment.id} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("video"); setSelectedVideoIndex(index); setCutFraction(pointerFraction(event)); }} className={`relative h-full min-w-16 cursor-grab overflow-hidden rounded-md border px-2 text-left active:cursor-grabbing ${selectedLane === "video" && index === activeVideoIndex ? "border-[var(--border-active)] bg-[rgba(190,137,232,.18)]" : "border-[rgba(190,137,232,.26)] bg-[rgba(190,137,232,.11)]"}`} style={{ flexGrow: segment.duration, flexBasis: 0 }}><button type="button" aria-label="Trim video shorter" onClick={(event) => { event.stopPropagation(); trimSelected(-0.15); }} className="absolute bottom-1 left-1 top-1 w-1.5 rounded bg-white/35" /><button type="button" aria-label="Trim video longer" onClick={(event) => { event.stopPropagation(); trimSelected(0.15); }} className="absolute bottom-1 right-1 top-1 w-1.5 rounded bg-white/35" /><div className="truncate pl-2 pr-2 text-[10px] leading-8 text-white">{index === 0 && art?.name ? art.name : segment.label}</div>{selectedLane === "video" && index === activeVideoIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>)}</Reorder.Group></TimelineLane>
           <TimelineLane label="EFFECT" icon={<Layers3 className="h-3 w-3" />}><div className="flex h-full gap-1">{[["Grain", settings.grain], ["Flicker", settings.flicker], ["Vignette", settings.vignette], ["Dust", settings.dust]].filter(([, value]) => Number(value) > 0).map(([label, value]) => <div key={String(label)} className="h-full min-w-20 flex-1 rounded-md border border-[rgba(239,99,152,.24)] bg-[rgba(239,99,152,.09)] px-2 text-[9px] leading-8 text-[var(--rose-soft)]">{label} {value}%</div>)}</div></TimelineLane>
-          <TimelineLane label="AUDIO" icon={<Music2 className="h-3 w-3" />}><Reorder.Group axis="x" values={ordered} onReorder={setOrdered} className="flex h-full min-w-0 gap-1">{ordered.length ? ordered.map((track, index) => <Reorder.Item value={track} key={`${track.title}-${index}`} title={`${track.title} - drag to reorder`} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setSelectedTrackIndex(index); setCutFraction(pointerFraction(event)); }} className={`group relative min-w-[52px] cursor-grab overflow-hidden rounded-md border px-2 active:cursor-grabbing ${selectedLane === "audio" && index === activeTrackIndex ? "border-[var(--border-active)] bg-[rgba(88,182,168,.16)]" : "border-[rgba(88,182,168,.28)] bg-[rgba(88,182,168,.1)]"}`} style={{ flexGrow: track.durationSeconds, flexBasis: 0 }}><div className="truncate text-[9px] leading-8 text-white">{String(index + 1).padStart(2, "0")} {track.title}</div><div className="absolute inset-x-1 bottom-1 flex h-1 items-end gap-px">{[3,7,4,9,5,8,3,6,4,8,5,7].map((height, bar) => <i key={bar} className="flex-1 bg-[rgba(136,222,206,.55)]" style={{ height }} />)}</div>{selectedLane === "audio" && index === activeTrackIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>) : <button type="button" onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setCutFraction(pointerFraction(event)); }} className="grid h-full flex-1 place-items-center rounded-md border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">Drop audio here or push tracks from New Media</button>}</Reorder.Group></TimelineLane>
+          <TimelineLane label="AUDIO" icon={<Music2 className="h-3 w-3" />}><Reorder.Group axis="x" values={ordered} onReorder={(next) => { rememberEdit(); setOrdered(next); }} className="flex h-full min-w-0 gap-1">{ordered.length ? ordered.map((track, index) => <Reorder.Item value={track} key={`${track.title}-${index}`} title={`${track.title} - drag to reorder`} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setSelectedTrackIndex(index); setCutFraction(pointerFraction(event)); }} className={`group relative min-w-[52px] cursor-grab overflow-hidden rounded-md border px-2 active:cursor-grabbing ${selectedLane === "audio" && index === activeTrackIndex ? "border-[var(--border-active)] bg-[rgba(88,182,168,.16)]" : "border-[rgba(88,182,168,.28)] bg-[rgba(88,182,168,.1)]"}`} style={{ flexGrow: track.durationSeconds, flexBasis: 0 }}><button type="button" aria-label="Trim audio shorter" onClick={(event) => { event.stopPropagation(); trimSelected(-0.25); }} className="absolute bottom-1 left-1 top-1 w-1.5 rounded bg-white/35" /><button type="button" aria-label="Trim audio longer" onClick={(event) => { event.stopPropagation(); trimSelected(0.25); }} className="absolute bottom-1 right-1 top-1 w-1.5 rounded bg-white/35" /><div className="truncate px-2 text-[9px] leading-8 text-white">{String(index + 1).padStart(2, "0")} {track.title}</div><div className="absolute inset-x-1 bottom-1 flex h-1 items-end gap-px">{[3,7,4,9,5,8,3,6,4,8,5,7].map((height, bar) => <i key={bar} className="flex-1 bg-[rgba(136,222,206,.55)]" style={{ height }} />)}</div>{selectedLane === "audio" && index === activeTrackIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>) : <button type="button" onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setCutFraction(pointerFraction(event)); }} className="grid h-full flex-1 place-items-center rounded-md border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">Drop audio here or push tracks from New Media</button>}</Reorder.Group></TimelineLane>
         </section>
 
         <div className="grid grid-cols-[auto_auto_auto_minmax(180px,1fr)_auto] items-end gap-3"><CompactNumber label="Gap" value={settings.gapSeconds} min={0} max={10} step={0.5} suffix="s" onChange={(gapSeconds) => setSettings({ ...settings, gapSeconds })} /><CompactNumber label="Fade" value={settings.fadeSeconds} min={0} max={5} step={0.1} suffix="s" onChange={(fadeSeconds) => setSettings({ ...settings, fadeSeconds })} /><CompactNumber label="Loudness" value={settings.targetLufs} min={-24} max={-8} step={1} suffix=" LUFS" onChange={(targetLufs) => setSettings({ ...settings, targetLufs })} /><label className="text-[9px] uppercase tracking-[.12em] text-[var(--text-muted)]">Schedule publish<input type="datetime-local" value={settings.scheduledPublishAt?.slice(0, 16) ?? ""} onChange={(event) => setSettings({ ...settings, scheduledPublishAt: event.target.value ? new Date(event.target.value).toISOString() : undefined })} className="mt-1 h-8 w-full rounded-lg bg-black/20 px-3 text-xs normal-case text-white ring-1 ring-inset ring-[var(--border)]" /></label><button onClick={saveTimeline} className="h-10 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">Save timeline</button></div>
