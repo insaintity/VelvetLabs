@@ -69,6 +69,9 @@ test.describe("Velvet dashboard", () => {
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(page.getByLabel("Confirm password")).toBeVisible();
     await loginCard.getByRole("button", { name: "Log in" }).first().click();
+    await page.getByRole("button", { name: "Lost access? Recover account" }).click();
+    await expect(page.getByLabel("Recovery code")).toBeVisible();
+    await page.getByRole("button", { name: "Back to login" }).click();
     await expect(page.getByPlaceholder("Username")).toBeVisible();
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
 
@@ -305,6 +308,9 @@ test.describe("Velvet dashboard", () => {
   test("shows focused onboarding for ChatGPT, ElevenLabs and YouTube", async ({ page }) => {
     await page.goto("/settings");
 
+    await expect(page.getByRole("heading", { name: "Velvet Account" })).toBeVisible();
+    await expect(page.getByLabel("Current password")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "New password", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Onboarding" })).toBeVisible();
     await expect(page.locator(".setup-progress-count")).toHaveCSS("font-size", "28px");
     await expect(page.locator(".setup-progress-count span")).toHaveCSS("font-size", "28px");

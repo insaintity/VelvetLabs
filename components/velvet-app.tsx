@@ -1511,6 +1511,9 @@ function FirstRunOnboarding({ open, setup, onDismiss }: { open: boolean; setup: 
 
 function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   const setupController = useSetupController();
+  const [accountMessage, setAccountMessage] = useState("Update the owner email or password for this Velvet studio.");
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountForm, setAccountForm] = useState({ username: "", email: "", currentPassword: "", newPassword: "", confirmPassword: "" });
   const [youtubeStatus, setYoutubeStatus] = useState<string | null>(null);
   const [youtubeLoginAvailable, setYoutubeLoginAvailable] = useState(false);
   const [connectingYouTube, setConnectingYouTube] = useState(false);
@@ -1561,6 +1564,13 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
   }, []);
 
   useEffect(() => {
+    fetch("/api/auth/account")
+      .then((response) => response.json())
+      .then((data) => setAccountForm((current) => ({ ...current, username: data.account?.username ?? "", email: data.account?.email ?? "" })))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!setupController.loaded) return;
     const data = setupController.data;
     const storedSetup = data.setup ?? {};
@@ -1597,6 +1607,39 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
 
   function updateSetupForm(field: keyof SetupForm, value: string) {
     setSetupForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateAccountForm(field: keyof typeof accountForm, value: string) {
+    setAccountForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveAccount() {
+    if (accountForm.newPassword && accountForm.newPassword !== accountForm.confirmPassword) {
+      setAccountMessage("New passwords do not match.");
+      return;
+    }
+    setSavingAccount(true);
+    setAccountMessage("Saving account changes...");
+    try {
+      const response = await fetch("/api/auth/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: accountForm.username,
+          email: accountForm.email,
+          currentPassword: accountForm.currentPassword,
+          password: accountForm.newPassword
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Account could not be updated.");
+      setAccountForm((current) => ({ ...current, currentPassword: "", newPassword: "", confirmPassword: "", username: data.account?.username ?? current.username, email: data.account?.email ?? current.email }));
+      setAccountMessage("Account updated.");
+    } catch (error) {
+      setAccountMessage(error instanceof Error ? error.message : "Account could not be updated.");
+    } finally {
+      setSavingAccount(false);
+    }
   }
 
   async function saveSetup(validateServices = true) {
@@ -1725,6 +1768,23 @@ function SettingsWorkspace({ setup }: { setup: SetupOverview }) {
     <div className="min-h-0 flex-1 overflow-hidden p-3 lg:p-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5">
         <section className="panel settings-primary rounded-xl p-4">
+          <div className="mb-4 rounded-xl border border-[var(--border)] bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <SectionTitle label="Velvet Account" icon={<Lock className="h-4 w-4" />} />
+                <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">Change the owner email or password used on the login screen.</p>
+              </div>
+              <button onClick={saveAccount} disabled={savingAccount || !accountForm.currentPassword} className="glass-primary flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40">{savingAccount ? "Saving" : "Save account"}<ArrowRight className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Field label="Username" placeholder="Username" value={accountForm.username} onChange={(value) => updateAccountForm("username", value)} />
+              <Field label="Email" placeholder="you@example.com" value={accountForm.email} onChange={(value) => updateAccountForm("email", value)} />
+              <Field label="Current password" placeholder="Required to save" secret value={accountForm.currentPassword} onChange={(value) => updateAccountForm("currentPassword", value)} />
+              <Field label="New password" placeholder="Leave blank to keep current" secret value={accountForm.newPassword} onChange={(value) => updateAccountForm("newPassword", value)} />
+              <Field label="Confirm new password" placeholder="Confirm password" secret value={accountForm.confirmPassword} onChange={(value) => updateAccountForm("confirmPassword", value)} />
+            </div>
+            <p className={`mt-3 text-xs ${accountMessage.toLowerCase().includes("updated") ? "text-[var(--success)]" : accountMessage.toLowerCase().includes("not") || accountMessage.toLowerCase().includes("match") || accountMessage.toLowerCase().includes("could") ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>{accountMessage}</p>
+          </div>
           <SectionTitle label="Onboarding" />
           <p className="settings-intro mt-2 max-w-3xl text-xs leading-5 text-[var(--text-secondary)]">
             Connect ChatGPT and ElevenLabs to create music. YouTube is optional and only used when you choose to publish from Velvet. Model and format defaults are handled automatically.
