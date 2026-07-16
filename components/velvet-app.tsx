@@ -527,14 +527,21 @@ function VideoTimelineWorkspace({ id }: { id: string }) {
   const resourceKey = `/api/projects/${id}`;
   const cached = peekCachedJson<{ project?: ClientProject }>(resourceKey);
   const [project, setProject] = useState<ClientProject | null>(cached?.project ?? null);
+  const [missing, setMissing] = useState(false);
 
   const loadProject = useCallback(async () => {
-    const data = await cachedJson<{ project?: ClientProject }>(resourceKey, true);
-    setProject(data.project ?? null);
+    try {
+      const data = await cachedJson<{ project?: ClientProject }>(resourceKey, true);
+      setProject(data.project ?? null);
+      setMissing(false);
+    } catch {
+      setProject(null);
+      setMissing(true);
+    }
   }, [resourceKey]);
 
   useEffect(() => {
-    loadProject().catch(() => setProject(null));
+    loadProject();
     window.addEventListener("velvet:studio-update", loadProject);
     return () => window.removeEventListener("velvet:studio-update", loadProject);
   }, [loadProject]);
@@ -545,6 +552,8 @@ function VideoTimelineWorkspace({ id }: { id: string }) {
     emitToast("Video timeline saved.", "success");
     await loadProject();
   }
+
+  if (missing) return <BlankVideoEditorWorkspace />;
 
   if (!project?.blueprint) {
     return <div className="grid min-h-0 flex-1 place-items-center p-4"><section className="panel grid h-full w-full place-items-center rounded-xl"><div className="text-center"><Activity className="mx-auto h-5 w-5 animate-pulse text-[var(--rose-soft)]" /><p className="mt-3 text-sm text-[var(--text-muted)]">Loading video timeline...</p></div></section></div>;
@@ -614,6 +623,10 @@ function useToolProjects(forcedId?: string) {
   useEffect(() => {
     if (forcedId) {
       setSelectedId(forcedId);
+      return;
+    }
+    if (selectedId && projects && !projects.some((project) => project.id === selectedId)) {
+      setSelectedId(projects[0]?.id ?? "");
       return;
     }
     if (!selectedId && projects?.[0]) setSelectedId(projects[0].id);
