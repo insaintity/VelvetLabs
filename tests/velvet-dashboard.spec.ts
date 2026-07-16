@@ -65,7 +65,7 @@ test.describe("Velvet dashboard", () => {
     await page.goto("/login");
     const loginCard = page.getByRole("region", { name: "Velvet account login" });
     await expect(loginCard).toBeVisible();
-    await expect(page.getByPlaceholder("VelvetDEV")).toBeVisible();
+    await expect(page.getByPlaceholder("Username")).toBeVisible();
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
 
     const cardBox = await loginCard.boundingBox();
