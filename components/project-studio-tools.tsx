@@ -116,18 +116,26 @@ export function TrackAuditionDrawer({ open, onClose, projectId, projectTitle, tr
   );
 }
 
-export function CreativeVariantsDrawer({ open, onClose, projectId, variants, onUseTitle, onUseThumbnail, onRefresh }: { open: boolean; onClose: () => void; projectId: string; variants?: { titles: string[]; thumbnailPrompts: string[]; createdAt: string }; onUseTitle: (title: string) => Promise<void>; onUseThumbnail: (prompt: string) => Promise<void>; onRefresh: () => Promise<void> }) {
+export function CreativeVariantsDrawer({ open, onClose, projectId, projectTitle, variants, onUseTitle, onUseThumbnail, onRefresh, standalone = false }: { open: boolean; onClose: () => void; projectId: string; projectTitle?: string; variants?: { titles: string[]; thumbnailPrompts: string[]; createdAt: string }; onUseTitle: (title: string) => Promise<void>; onUseThumbnail: (prompt: string) => Promise<void>; onRefresh: () => Promise<void>; standalone?: boolean }) {
   const [busy, setBusy] = useState(false);
   async function generate() { setBusy(true); const response = await fetch(`/api/projects/${projectId}/creative-variants`, { method: "POST", headers: { "Content-Type": "application/json" } }); const data = await response.json(); setBusy(false); emitToast(response.ok ? "Creative variants are ready." : data.error ?? "Variants could not be created.", response.ok ? "success" : "error"); if (response.ok) await onRefresh(); }
-  return (
-    <Drawer open={open} onClose={onClose} title="Creative variants" icon={<ImageIcon className="h-4 w-4" />}>
-      <div className="grid h-full grid-rows-[auto_minmax(0,1fr)] gap-4 pt-4">
-        <div className="flex items-center justify-between rounded-xl bg-black/20 p-4 ring-1 ring-inset ring-[var(--border)]"><div><div className="text-sm font-medium text-white">YouTube release options</div><div className="mt-1 text-xs text-[var(--text-muted)]">Three title and thumbnail directions, generated on demand.</div></div><button onClick={generate} disabled={busy} className="flex h-9 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--violet),var(--rose))] px-4 text-xs font-medium disabled:opacity-40">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}{variants ? "Refresh" : "Generate"}</button></div>
+  const editor = (
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4 pt-4">
+        <div className="flex items-center justify-between rounded-xl bg-black/20 p-4 ring-1 ring-inset ring-[var(--border)]"><div><div className="text-sm font-medium text-white">Release artwork options</div><div className="mt-1 text-xs text-[var(--text-muted)]">Three title and thumbnail directions, generated on demand.</div></div><button onClick={generate} disabled={busy} className="flex h-9 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--violet),var(--rose))] px-4 text-xs font-medium disabled:opacity-40">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}{variants ? "Refresh" : "Generate"}</button></div>
         <div className="grid min-h-0 grid-cols-2 gap-3 overflow-hidden">
           <section><div className="mb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--rose-soft)]">Title variants</div><div className="grid gap-2">{(variants?.titles ?? ["Generate variants to compare release titles."]).map((title, index) => <button key={title} disabled={!variants} onClick={() => onUseTitle(title)} className="rounded-lg bg-white/[.025] p-3 text-left text-xs leading-5 text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border)] hover:bg-white/[.05] hover:text-white disabled:opacity-50"><span className="mr-2 text-[var(--rose-soft)]">0{index + 1}</span>{title}</button>)}</div></section>
           <section><div className="mb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--rose-soft)]">Thumbnail directions</div><div className="grid gap-2">{(variants?.thumbnailPrompts ?? ["Generate variants to compare artwork directions."]).map((prompt, index) => <button key={prompt} disabled={!variants} onClick={() => onUseThumbnail(prompt)} className="rounded-lg bg-white/[.025] p-3 text-left text-xs leading-5 text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border)] hover:bg-white/[.05] hover:text-white disabled:opacity-50"><span className="mr-2 text-[var(--rose-soft)]">0{index + 1}</span>{prompt}</button>)}</div></section>
-        </div>
       </div>
+    </div>
+  );
+
+  if (standalone) {
+    return <div className="h-full min-h-0 w-full p-3 lg:p-4"><section aria-label="Thumbnail editor" className="panel grid h-full min-h-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden rounded-xl bg-[#14121f] p-3"><header className="flex items-center justify-between border-b border-[var(--border)] pb-2"><div className="flex min-w-0 items-center gap-3"><button onClick={onClose} aria-label="Back to project" title="Back to project" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[.045] text-[var(--text-muted)] hover:bg-white/[.08] hover:text-white"><ArrowLeft className="h-4 w-4" /></button><ImageIcon className="h-4 w-4 shrink-0 text-[var(--rose-soft)]" /><div className="min-w-0"><div className="text-[11px] font-semibold uppercase tracking-[.13em] text-white">Thumbnail editor</div><div className="truncate text-[10px] text-[var(--text-muted)]">{projectTitle}</div></div></div><span className="text-[10px] uppercase tracking-[.12em] text-[var(--text-muted)]">Titles + artwork directions</span></header>{editor}</section></div>;
+  }
+
+  return (
+    <Drawer open={open} onClose={onClose} title="Creative variants" icon={<ImageIcon className="h-4 w-4" />}>
+      {editor}
     </Drawer>
   );
 }

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, CalendarClock, FolderKanban, History, Settings, Sparkles } from "lucide-react";
+import { BarChart3, CalendarClock, Clapperboard, FolderKanban, History, ImageIcon, Settings, Sparkles } from "lucide-react";
 
 export type NavItem = {
   label: string;
@@ -10,6 +10,8 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { label: "New Media", href: "/projects/new", icon: Sparkles },
   { label: "Projects", href: "/projects", icon: FolderKanban },
+  { label: "Video Editor", href: "/video-editor", icon: Clapperboard },
+  { label: "Thumbnail Editor", href: "/thumbnail-editor", icon: ImageIcon },
   { label: "Scheduler", href: "/publishing", icon: CalendarClock },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "History", href: "/history", icon: History },

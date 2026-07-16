@@ -301,6 +301,14 @@ function Sidebar({ pathname, setup }: { pathname: string; setup: SetupOverview }
 }
 
 function isActiveNavItem(pathname: string, href: string) {
+  if (href === "/video-editor") {
+    return pathname === "/video-editor" || (pathname.startsWith("/projects/") && pathname.endsWith("/timeline"));
+  }
+
+  if (href === "/thumbnail-editor") {
+    return pathname === "/thumbnail-editor" || (pathname.startsWith("/projects/") && pathname.endsWith("/thumbnail"));
+  }
+
   if (href === "/projects") {
     return pathname === "/projects" || (pathname.startsWith("/projects/") && pathname !== "/projects/new");
   }
@@ -369,6 +377,18 @@ function FreshWorkspace({ pathname, setup }: { pathname: string; setup: SetupOve
 
   if (pathname.startsWith("/projects/") && pathname.endsWith("/timeline")) {
     return <VideoTimelineWorkspace id={pathname.split("/").filter(Boolean)[1]} />;
+  }
+
+  if (pathname.startsWith("/projects/") && pathname.endsWith("/thumbnail")) {
+    return <ThumbnailEditorWorkspace id={pathname.split("/").filter(Boolean)[1]} />;
+  }
+
+  if (pathname === "/video-editor") {
+    return <VideoEditorWorkspace />;
+  }
+
+  if (pathname === "/thumbnail-editor") {
+    return <ThumbnailEditorWorkspace />;
   }
 
   if (pathname.startsWith("/projects/") && pathname !== "/projects/new") {
@@ -485,6 +505,20 @@ function ProjectsWorkspace() {
   );
 }
 
+function VideoEditorWorkspace({ id }: { id?: string }) {
+  const { projects, selectedId, setSelectedId, loading } = useToolProjects(id);
+
+  if (loading) return <ToolLoading label="Loading video editor" />;
+  if (!projects.length) return <EmptyToolWorkspace title="No projects for the video editor yet" body="Create a song or album blueprint first. The video editor will use that project's tracks, artwork and render settings." />;
+
+  return (
+    <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+      <ProjectToolSwitcher title="Video Editor" body="Assemble artwork, ordered music, overlays, grain, flicker and render timing." projects={projects} selectedId={selectedId} onSelect={setSelectedId} />
+      {selectedId ? <VideoTimelineWorkspace id={selectedId} /> : null}
+    </div>
+  );
+}
+
 function VideoTimelineWorkspace({ id }: { id: string }) {
   const resourceKey = `/api/projects/${id}`;
   const cached = peekCachedJson<{ project?: ClientProject }>(resourceKey);
@@ -513,6 +547,125 @@ function VideoTimelineWorkspace({ id }: { id: string }) {
   }
 
   return <SequenceDrawer standalone open onClose={() => { window.location.href = `/projects/${id}`; }} projectId={id} projectTitle={project.title} tracks={project.blueprint.tracks} production={project.production} artworkAssets={(project.referenceAssets ?? []).filter((asset) => asset.kind === "artwork")} onSave={saveTimeline} onAssetUploaded={loadProject} />;
+}
+
+function ThumbnailEditorWorkspace({ id }: { id?: string }) {
+  const { projects, selectedId, setSelectedId, loading } = useToolProjects(id);
+
+  if (loading) return <ToolLoading label="Loading thumbnail editor" />;
+  if (!projects.length) return <EmptyToolWorkspace title="No projects for the thumbnail editor yet" body="Create a blueprint first. The thumbnail editor will then generate release titles and artwork directions for that project." />;
+
+  return (
+    <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+      <ProjectToolSwitcher title="Thumbnail Editor" body="Generate title options and thumbnail directions, then apply the best creative direction back to the selected project." projects={projects} selectedId={selectedId} onSelect={setSelectedId} />
+      {selectedId ? <ThumbnailEditorDetail id={selectedId} /> : null}
+    </div>
+  );
+}
+
+function ThumbnailEditorDetail({ id }: { id: string }) {
+  const resourceKey = `/api/projects/${id}`;
+  const cached = peekCachedJson<{ project?: ClientProject }>(resourceKey);
+  const [project, setProject] = useState<ClientProject | null>(cached?.project ?? null);
+
+  const loadProject = useCallback(async () => {
+    const data = await cachedJson<{ project?: ClientProject }>(resourceKey, true);
+    setProject(data.project ?? null);
+  }, [resourceKey]);
+
+  useEffect(() => {
+    loadProject().catch(() => setProject(null));
+    window.addEventListener("velvet:studio-update", loadProject);
+    return () => window.removeEventListener("velvet:studio-update", loadProject);
+  }, [loadProject]);
+
+  async function applyCreativeVariant(field: "youtubeTitle" | "coverPrompt", value: string) {
+    const response = await fetch(resourceKey, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
+    if (!response.ok) return emitToast("Creative direction could not be applied.", "error");
+    emitToast(field === "youtubeTitle" ? "Title applied." : "Thumbnail direction applied.", "success");
+    await loadProject();
+  }
+
+  if (!project?.blueprint) {
+    return <ToolLoading label="Loading thumbnail editor" />;
+  }
+
+  return <CreativeVariantsDrawer standalone open onClose={() => { window.location.href = `/projects/${id}`; }} projectId={id} projectTitle={project.title} variants={project.creativeVariants} onUseTitle={(title) => applyCreativeVariant("youtubeTitle", title)} onUseThumbnail={(prompt) => applyCreativeVariant("coverPrompt", prompt)} onRefresh={loadProject} />;
+}
+
+function useToolProjects(forcedId?: string) {
+  const cached = peekCachedJson<{ projects: ClientProject[] }>("/api/projects");
+  const [projects, setProjects] = useState<ClientProject[] | null>(cached?.projects?.filter((project) => project.blueprint) ?? null);
+  const [selectedId, setSelectedId] = useState(forcedId ?? "");
+
+  useEffect(() => {
+    const load = () => cachedJson<{ projects: ClientProject[] }>("/api/projects", true)
+      .then((data) => setProjects((data.projects ?? []).filter((project) => project.blueprint)))
+      .catch(() => setProjects([]));
+    load();
+    window.addEventListener("velvet:studio-update", load);
+    return () => window.removeEventListener("velvet:studio-update", load);
+  }, []);
+
+  useEffect(() => {
+    if (forcedId) {
+      setSelectedId(forcedId);
+      return;
+    }
+    if (!selectedId && projects?.[0]) setSelectedId(projects[0].id);
+  }, [forcedId, projects, selectedId]);
+
+  return { projects: projects ?? [], selectedId, setSelectedId, loading: projects === null };
+}
+
+function ProjectToolSwitcher({ title, body, projects, selectedId, onSelect }: { title: string; body: string; projects: ClientProject[]; selectedId: string; onSelect: (id: string) => void }) {
+  return (
+    <div className="shrink-0 px-3 pt-3 lg:px-4 lg:pt-4">
+      <section className="panel rounded-xl p-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <SectionTitle label={title} />
+            <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">{body}</p>
+          </div>
+          <Link href="/projects/new" className="hidden h-9 items-center gap-2 rounded-lg bg-white/[0.045] px-3 text-xs text-[var(--text-secondary)] hover:bg-white/[0.075] hover:text-white md:flex">
+            <Plus className="h-3.5 w-3.5" />
+            New Media
+          </Link>
+        </div>
+        <div className="mt-3 flex gap-2 overflow-hidden">
+          {projects.slice(0, 5).map((project) => (
+            <button key={project.id} onClick={() => onSelect(project.id)} className={`grid min-w-0 flex-1 grid-cols-[36px_minmax(0,1fr)] items-center gap-2 rounded-lg border p-2 text-left ${selectedId === project.id ? "border-[var(--border-active)] bg-[rgba(239,99,152,.09)]" : "border-[var(--border)] bg-white/[.025] hover:border-[var(--border-hover)]"}`}>
+              <ProjectArtwork title={project.title} compact />
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium text-white">{project.title}</span>
+                <span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">{project.mediaType ?? "release"} · {project.status}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ToolLoading({ label }: { label: string }) {
+  return <div className="grid min-h-0 flex-1 place-items-center p-4" aria-label={label}><section className="panel grid h-full w-full place-items-center rounded-xl"><div className="text-center"><Activity className="mx-auto h-5 w-5 animate-pulse text-[var(--rose-soft)]" /><p className="mt-3 text-sm text-[var(--text-muted)]">{label}...</p></div></section></div>;
+}
+
+function EmptyToolWorkspace({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="min-h-0 flex-1 p-5">
+      <section className="panel flex h-full flex-col items-center justify-center rounded-xl p-8 text-center">
+        <ImageIcon className="h-8 w-8 text-[var(--rose-soft)]" />
+        <h1 className="mt-4 text-[28px] font-semibold">{title}</h1>
+        <p className="mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">{body}</p>
+        <Link href="/projects/new" className="mt-6 flex h-11 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--blue),var(--violet),var(--rose))] px-5 text-sm font-medium">
+          <Plus className="h-4 w-4" />
+          Create Media
+        </Link>
+      </section>
+    </div>
+  );
 }
 
 function ProjectDetailWorkspace({ id }: { id: string }) {
@@ -785,7 +938,7 @@ function ProjectDetailWorkspace({ id }: { id: string }) {
               </>
             )}
             <PrivacyMenu value={privacy} onChange={setPrivacy} />
-            <div className="grid grid-cols-3 gap-2 pt-1"><ReferenceUploader projectId={id} onUploaded={loadProject} /><button onClick={() => setCreativeOpen(true)} title="Title and thumbnail variants" aria-label="Title and thumbnail variants" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ImageIcon className="h-3.5 w-3.5" />Variants</button><a href={`/api/projects/${id}/archive`} title="Download project archive" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><Download className="h-3.5 w-3.5" />Archive</a></div>
+            <div className="grid grid-cols-3 gap-2 pt-1"><ReferenceUploader projectId={id} onUploaded={loadProject} /><Link href={`/projects/${id}/thumbnail`} title="Open thumbnail editor" aria-label="Open thumbnail editor" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ImageIcon className="h-3.5 w-3.5" />Thumbnail</Link><a href={`/api/projects/${id}/archive`} title="Download project archive" className="flex h-9 items-center justify-center gap-2 rounded-lg bg-white/[.04] px-2 text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><Download className="h-3.5 w-3.5" />Archive</a></div>
             <button onClick={duplicateProject} className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/[.04] text-xs text-[var(--text-secondary)] hover:bg-white/[.07] hover:text-white"><ListRestart className="h-3.5 w-3.5" />Duplicate project</button>
           </div>
         ) : null}
@@ -2166,7 +2319,16 @@ function SectionTitle({ label, icon }: { label: string; icon?: React.ReactNode }
 
 function getPageTitle(pathname: string) {
   if (pathname.startsWith("/projects/") && pathname.endsWith("/timeline")) {
-    return "Video Timeline";
+    return "Video Editor";
+  }
+  if (pathname === "/video-editor") {
+    return "Video Editor";
+  }
+  if (pathname.startsWith("/projects/") && pathname.endsWith("/thumbnail")) {
+    return "Thumbnail Editor";
+  }
+  if (pathname === "/thumbnail-editor") {
+    return "Thumbnail Editor";
   }
   if (pathname === "/projects/new") {
     return "New Media";

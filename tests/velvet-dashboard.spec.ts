@@ -431,6 +431,8 @@ test.describe("Velvet dashboard", () => {
     await expect(commands).toBeVisible();
     await expect(commands.getByRole("textbox", { name: "Search commands" })).toHaveCSS("box-shadow", "none");
     await expect(commands.getByRole("link", { name: /New Media/ })).toBeVisible();
+    await expect(commands.getByRole("link", { name: /Video Editor/ })).toBeVisible();
+    await expect(commands.getByRole("link", { name: /Thumbnail Editor/ })).toBeVisible();
     await page.getByRole("button", { name: "Close command palette" }).click();
 
     await page.getByRole("button", { name: "Play Amber Masque" }).click();
@@ -467,16 +469,17 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("Next generation estimate")).toBeVisible();
     await page.getByRole("button", { name: "Close Generation center" }).click();
 
-    await page.getByRole("button", { name: "Title and thumbnail variants" }).click();
-    const creativeVariants = page.getByRole("dialog", { name: "Creative variants" });
-    await expect(creativeVariants).toBeVisible();
-    await expect(creativeVariants.getByRole("button", { name: "Generate", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Open thumbnail editor" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${fixtureProjectId}/thumbnail$`));
+    await expect(page.getByRole("region", { name: "Thumbnail editor" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Generate", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Thumbnail Editor" })).toHaveAttribute("aria-current", "page");
   });
 
   test("keeps primary pages inside the fixed studio frame", async ({ page }) => {
     await writeFixtureDatabase();
     await page.addInitScript(() => window.localStorage.setItem("velvet-onboarding", "dismissed"));
-    for (const path of ["/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/publishing", "/analytics", "/history", "/settings"]) {
+    for (const path of ["/projects/new", "/projects", `/projects/${fixtureProjectId}`, "/video-editor", "/thumbnail-editor", "/publishing", "/analytics", "/history", "/settings"]) {
       await page.goto(path);
       const hasScroll = await page.evaluate(() => {
         const root = document.scrollingElement ?? document.documentElement;
