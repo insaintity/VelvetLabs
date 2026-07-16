@@ -21,8 +21,6 @@ import {
   ListMusic,
   ListRestart,
   LogOut,
-  Maximize2,
-  Minus,
   Music2,
   PanelRight,
   Pause,
@@ -38,7 +36,6 @@ import {
   Upload,
   Volume2,
   WandSparkles,
-  X,
   Youtube
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -73,8 +70,6 @@ export function VelvetApp() {
   const setupOverview = useSetupOverview();
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [desktopMode, setDesktopMode] = useState(false);
-  const [transparentMode, setTransparentMode] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   useEffect(() => {
@@ -110,31 +105,12 @@ export function VelvetApp() {
   }
 
   useEffect(() => {
-    const desktopMode = navigator.userAgent.includes("Electron");
-    setDesktopMode(desktopMode);
-    document.documentElement.classList.toggle("desktop-mode", desktopMode);
-    document.documentElement.classList.toggle("web-mode", !desktopMode);
-    if (!desktopMode) document.documentElement.classList.remove("transparent-mode");
+    document.documentElement.classList.add("web-mode");
+    document.documentElement.classList.remove("desktop-mode");
     return () => {
-      document.documentElement.classList.remove("desktop-mode");
       document.documentElement.classList.remove("web-mode");
     };
   }, []);
-
-  useEffect(() => {
-    const enabled = navigator.userAgent.includes("Electron") && window.localStorage.getItem("velvet-transparency") === "enabled";
-    setTransparentMode(enabled);
-    document.documentElement.classList.toggle("transparent-mode", enabled);
-  }, []);
-
-  function toggleTransparency() {
-    setTransparentMode((current) => {
-      const enabled = !current;
-      window.localStorage.setItem("velvet-transparency", enabled ? "enabled" : "disabled");
-      document.documentElement.classList.toggle("transparent-mode", enabled);
-      return enabled;
-    });
-  }
 
   return (
     <main className="relative z-10 h-screen min-w-0 overflow-hidden p-3 text-[15px] lg:p-5">
@@ -145,7 +121,7 @@ export function VelvetApp() {
       <div className={`grid h-[calc(100vh-24px)] grid-cols-[64px_minmax(0,1fr)] gap-3 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-5 ${activeTrack ? "lg:h-[calc(100vh-136px)]" : "lg:h-[calc(100vh-40px)]"}`}>
         <Sidebar pathname={pathname} setup={setupOverview} />
         <section className="panel studio-shell flex min-h-0 flex-col overflow-hidden rounded-2xl lg:rounded-[22px]">
-          <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} transparentMode={transparentMode} onToggleTransparency={toggleTransparency} desktopMode={desktopMode} />
+          <TopBar pageTitle={pageTitle} setup={setupOverview} onOpenCommand={() => setCommandOpen(true)} />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={pathname} className="studio-content relative z-0 flex min-h-0 flex-1" initial={{ opacity: 0, x: 7 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}>
               {pathname === "/projects/new" ? <NewProjectWorkspace /> : <FreshWorkspace pathname={pathname} setup={setupOverview} />}
@@ -336,19 +312,9 @@ function isActiveNavItem(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function TopBar({ pageTitle, setup, onOpenCommand, transparentMode, onToggleTransparency, desktopMode }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void; transparentMode: boolean; onToggleTransparency: () => void; desktopMode: boolean }) {
+function TopBar({ pageTitle, setup, onOpenCommand }: { pageTitle: string; setup: SetupOverview; onOpenCommand: () => void }) {
   const [privateAccessEnabled, setPrivateAccessEnabled] = useState(false);
-  const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
-  const displayMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => { fetch("/api/auth/status").then((response) => response.json()).then((body) => setPrivateAccessEnabled(body.enabled === true)).catch(() => undefined); }, []);
-  useEffect(() => {
-    if (!displayMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (!displayMenuRef.current?.contains(event.target as Node)) setDisplayMenuOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [displayMenuOpen]);
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -366,46 +332,7 @@ function TopBar({ pageTitle, setup, onOpenCommand, transparentMode, onToggleTran
         <span className="text-[var(--text-primary)]">{pageTitle}</span>
       </div>
       <div className="flex items-center gap-3">
-        {!desktopMode ? <div className="hidden items-center gap-2 rounded-full border border-[rgba(143,195,177,.18)] bg-[rgba(143,195,177,.06)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--success)] md:flex"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--success)] opacity-40" /><span className="relative h-1.5 w-1.5 rounded-full bg-[var(--success)]" /></span>Hosted studio</div> : null}
-        {desktopMode ? <div ref={displayMenuRef} className="relative">
-          <button
-            onClick={() => setDisplayMenuOpen((current) => !current)}
-            title="Display options"
-            aria-label="Display options"
-            aria-haspopup="menu"
-            aria-expanded={displayMenuOpen}
-            className={`glass-control grid h-9 w-9 place-items-center rounded-lg ${displayMenuOpen || transparentMode ? "text-[var(--rose-soft)]" : "text-[var(--text-muted)]"}`}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
-          <AnimatePresence>
-            {displayMenuOpen ? (
-              <motion.div
-                role="menu"
-                aria-label="Display options"
-                className="panel prompt-producer-dialog absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-lg p-1.5"
-                initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                transition={{ duration: 0.14 }}
-              >
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={transparentMode}
-                  onClick={() => {
-                    onToggleTransparency();
-                    setDisplayMenuOpen(false);
-                  }}
-                  className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-[var(--text-secondary)] hover:bg-white/[.06] hover:text-white"
-                >
-                  <span className="w-4">{transparentMode ? <Check className="h-4 w-4 text-[var(--rose-soft)]" /> : null}</span>
-                  Wallpaper mode
-                </button>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div> : null}
+        <div className="hidden items-center gap-2 rounded-full border border-[rgba(143,195,177,.18)] bg-[rgba(143,195,177,.06)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--success)] md:flex"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--success)] opacity-40" /><span className="relative h-1.5 w-1.5 rounded-full bg-[var(--success)]" /></span>Hosted studio</div>
         <button onClick={onOpenCommand} title="Open command palette" aria-label="Open command palette" className="glass-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
           <Search className="h-4 w-4" />
         </button>
@@ -430,29 +357,8 @@ function TopBar({ pageTitle, setup, onOpenCommand, transparentMode, onToggleTran
           {setup.canCreate ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
           <span className="hidden sm:inline">{setup.canCreate ? "New Media" : "Connect OpenAI"}</span>
         </Link>
-        <WindowControls />
       </div>
     </header>
-  );
-}
-
-function WindowControls() {
-  function run(action: "minimize" | "maximize" | "close") {
-    window.velvetDesktop?.windowAction(action);
-  }
-
-  return (
-    <div role="group" className="window-controls ml-1 shrink-0 items-center gap-1 border-l border-[var(--border)] pl-3" aria-label="Window controls">
-      <button type="button" onClick={() => run("minimize")} title="Minimize" aria-label="Minimize window" className="window-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
-        <Minus className="h-4 w-4" />
-      </button>
-      <button type="button" onClick={() => run("maximize")} title="Maximize or restore" aria-label="Maximize or restore window" className="window-control grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
-        <Maximize2 className="h-3.5 w-3.5" />
-      </button>
-      <button type="button" onClick={() => run("close")} title="Close" aria-label="Close window" className="window-control window-control-close grid h-9 w-9 place-items-center rounded-lg text-[var(--text-muted)] hover:text-white">
-        <X className="h-4 w-4" />
-      </button>
-    </div>
   );
 }
 

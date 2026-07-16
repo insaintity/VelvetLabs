@@ -35,7 +35,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Exports a portable JSON project archive with prompts, jobs, usage, and upload history.
 - Opens Google account sign-in for YouTube, uses PKCE for the authorization code exchange, and stores refresh tokens encrypted.
 - Provides backend routes for ElevenLabs music generation, render manifests, and YouTube uploads.
-- Provides a fixed, no-scroll studio interface with optional wallpaper transparency, command palette, animated loading states, and reduced-motion support.
+- Provides a fixed, no-scroll hosted studio interface with command palette, animated loading states, and reduced-motion support.
 - Protects production as a private single-user studio with a signed, HTTP-only login session.
 - Schedules rendered releases for future YouTube uploads with privacy controls and cancellation.
 - Tracks successful and failed uploads, success rate, privacy mix, and six-month publishing outcomes.
@@ -97,8 +97,6 @@ npm run desktop:dist:fast
 Velvet also creates rolling encrypted local backups whenever studio data changes. Export or restore a backup and check provider, worker, FFmpeg, storage, and database health from **Settings > Studio Health**.
 
 The installer is written to `release/`. Install it once, then launch Velvet from the desktop or Start menu without extracting the full runtime on every opening. Desktop projects and encrypted credentials remain under the current Windows user's Velvet application-data directory, so upgrades do not remove studio data.
-
-Use **Display options > Wallpaper mode** to reveal the Windows desktop through Velvet's translucent dark panels. The preference is stored locally and can be switched back to the solid studio background at any time.
 
 For a USB-style single executable, `npm run desktop:dist:portable` remains available. Portable mode extracts its bundled runtime on every launch and is therefore significantly slower than the installed app.
 

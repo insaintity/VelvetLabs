@@ -79,22 +79,12 @@ test.describe("Velvet dashboard", () => {
     });
   });
 
-  test("reserves a ten-pixel desktop drag perimeter without blocking the browser", async ({ page }) => {
+  test("keeps desktop-only chrome out of the hosted studio", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("velvet-onboarding", "dismissed"));
     await page.goto("/projects/new");
     const edges = page.locator(".window-drag-edge");
     await expect(edges).toHaveCount(4);
     await expect(edges.first()).toHaveCSS("pointer-events", "none");
-
-    await page.addInitScript(() => {
-      const userAgent = navigator.userAgent;
-      Object.defineProperty(navigator, "userAgent", { value: `${userAgent} Electron` });
-      window.velvetDesktop = {
-        windowAction: (action) => window.localStorage.setItem("test-window-action", action)
-      };
-    });
-    await page.reload();
-    await expect(edges.first()).toHaveCSS("pointer-events", "auto");
 
     const regions = await page.evaluate(() => {
       return [...document.querySelectorAll<HTMLElement>(".window-drag-edge")].map((edge) => {
@@ -106,16 +96,14 @@ test.describe("Velvet dashboard", () => {
     const viewport = page.viewportSize()!;
 
     expect(regions).toEqual([
-      { width: viewport.width, height: 10, drag: "drag", pointerEvents: "auto" },
-      { width: 10, height: viewport.height - 20, drag: "drag", pointerEvents: "auto" },
-      { width: viewport.width, height: 10, drag: "drag", pointerEvents: "auto" },
-      { width: 10, height: viewport.height - 20, drag: "drag", pointerEvents: "auto" }
+      { width: viewport.width, height: 10, drag: "none", pointerEvents: "none" },
+      { width: 10, height: viewport.height - 20, drag: "none", pointerEvents: "none" },
+      { width: viewport.width, height: 10, drag: "none", pointerEvents: "none" },
+      { width: 10, height: viewport.height - 20, drag: "none", pointerEvents: "none" }
     ]);
 
-    await expect(page.getByRole("group", { name: "Window controls" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Display options" })).toBeVisible();
-    await page.getByRole("button", { name: "Minimize window" }).click();
-    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("test-window-action"))).toBe("minimize");
+    await expect(page.getByRole("group", { name: "Window controls" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Display options" })).toHaveCount(0);
   });
 
   test("renders the guided new-project flow", async ({ page }) => {
