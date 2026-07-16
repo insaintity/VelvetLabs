@@ -501,6 +501,7 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Redo" })).toBeVisible();
     await expect(page.getByText("Clip properties")).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ grain" })).toBeVisible();
     const transparency = page.getByRole("slider", { name: "Transparency" });
     await expect(transparency).toBeVisible();
     await expect(page.getByRole("button", { name: "velvet" })).toBeVisible();
@@ -540,13 +541,16 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
     await expect(page.getByText("Asset bin")).toBeVisible();
     await expect(page.getByText("Clip properties")).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ grain" })).toBeVisible();
+    await page.getByRole("button", { name: "+ grain" }).click();
+    await expect(page.getByText("Grain effect added.")).toBeVisible();
     await expect(page.getByRole("button", { name: /25% 50% 75%/ })).toBeVisible();
     await page.keyboard.press("s");
     await expect(page.getByText("Select audio or the video lane before cutting.")).toBeVisible();
     await page.getByText("Artwork placeholder").click();
     await page.keyboard.press("s");
     await expect(page.getByText("Video/Image lane split. Shortcut: S")).toBeVisible();
-    await expect(page.getByText("Artwork placeholder cut", { exact: true })).toBeVisible();
+    await expect(page.locator(".relative.h-full").getByText("Artwork placeholder cut", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save timeline" })).toBeVisible();
   });
 

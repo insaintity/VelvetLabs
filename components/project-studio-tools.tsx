@@ -28,7 +28,8 @@ export type StudioProduction = {
 };
 export type StudioArtwork = { id: string; name: string; kind: "audio" | "artwork"; filePath: string; storagePath?: string; previewUrl?: string; createdAt: string };
 type VideoSegment = { id: string; label: string; duration: number };
-type EditorSnapshot = { ordered: StudioTrack[]; videoSegments: VideoSegment[] };
+type EffectSegment = { id: string; label: string; setting: "grain" | "flicker" | "vignette" | "dust"; duration: number };
+type EditorSnapshot = { ordered: StudioTrack[]; videoSegments: VideoSegment[]; effectSegments: EffectSegment[] };
 const DEFAULT_STUDIO_PRODUCTION: StudioProduction = { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master", visualPreset: "velvet", filterIntensity: 70, overlayOpacity: 55, grain: 18, flicker: 8, vignette: 28, dust: 5 };
 
 function Drawer({ open, onClose, title, icon, children, width = "max-w-[560px]" }: { open: boolean; onClose: () => void; title: string; icon: React.ReactNode; children: React.ReactNode; width?: string }) {
@@ -152,9 +153,16 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [copiedTrack, setCopiedTrack] = useState<StudioTrack | null>(null);
   const [cropMode, setCropMode] = useState<"fill" | "fit">("fill");
-  const [selectedLane, setSelectedLane] = useState<"video" | "audio">("audio");
+  const [selectedLane, setSelectedLane] = useState<"video" | "effect" | "audio">("audio");
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>(() => [{ id: crypto.randomUUID(), label: "Artwork placeholder", duration: 1 }]);
+  const [effectSegments, setEffectSegments] = useState<EffectSegment[]>(() => [
+    { id: crypto.randomUUID(), label: "Grain", setting: "grain", duration: 1 },
+    { id: crypto.randomUUID(), label: "Flicker", setting: "flicker", duration: 1 },
+    { id: crypto.randomUUID(), label: "Vignette", setting: "vignette", duration: 1 },
+    { id: crypto.randomUUID(), label: "Dust", setting: "dust", duration: 1 }
+  ]);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+  const [selectedEffectIndex, setSelectedEffectIndex] = useState(0);
   const [cutFraction, setCutFraction] = useState(0.5);
   const [playheadFraction, setPlayheadFraction] = useState(0);
   const [undoStack, setUndoStack] = useState<EditorSnapshot[]>([]);
@@ -242,30 +250,34 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const activeTrack = ordered[activeTrackIndex];
   const activeVideoIndex = Math.min(Math.max(0, selectedVideoIndex), Math.max(0, videoSegments.length - 1));
   const activeVideo = videoSegments[activeVideoIndex];
-  const selectedDuration = selectedLane === "video" ? activeVideo?.duration : activeTrack?.durationSeconds;
+  const activeEffectIndex = Math.min(Math.max(0, selectedEffectIndex), Math.max(0, effectSegments.length - 1));
+  const activeEffect = effectSegments[activeEffectIndex];
+  const selectedDuration = selectedLane === "video" ? activeVideo?.duration : selectedLane === "effect" ? activeEffect?.duration : activeTrack?.durationSeconds;
   const assetNames = [...effectiveArtworkAssets.map((asset) => asset.name), ...ordered.map((track) => track.title)];
   const rememberEdit = useCallback(() => {
-    setUndoStack((current) => [...current.slice(-24), { ordered, videoSegments }]);
+    setUndoStack((current) => [...current.slice(-24), { ordered, videoSegments, effectSegments }]);
     setRedoStack([]);
-  }, [ordered, videoSegments]);
+  }, [effectSegments, ordered, videoSegments]);
   const undoEdit = useCallback(() => {
     const snapshot = undoStack.at(-1);
     if (!snapshot) return emitToast("Nothing to undo.", "error");
-    setRedoStack((current) => [...current, { ordered, videoSegments }]);
+    setRedoStack((current) => [...current, { ordered, videoSegments, effectSegments }]);
     setOrdered(snapshot.ordered);
     setVideoSegments(snapshot.videoSegments);
+    setEffectSegments(snapshot.effectSegments);
     setUndoStack((current) => current.slice(0, -1));
     emitToast("Undo applied.", "success");
-  }, [ordered, undoStack, videoSegments]);
+  }, [effectSegments, ordered, undoStack, videoSegments]);
   const redoEdit = useCallback(() => {
     const snapshot = redoStack.at(-1);
     if (!snapshot) return emitToast("Nothing to redo.", "error");
-    setUndoStack((current) => [...current, { ordered, videoSegments }]);
+    setUndoStack((current) => [...current, { ordered, videoSegments, effectSegments }]);
     setOrdered(snapshot.ordered);
     setVideoSegments(snapshot.videoSegments);
+    setEffectSegments(snapshot.effectSegments);
     setRedoStack((current) => current.slice(0, -1));
     emitToast("Redo applied.", "success");
-  }, [ordered, redoStack, videoSegments]);
+  }, [effectSegments, ordered, redoStack, videoSegments]);
   const cutActiveTrack = useCallback(() => {
     rememberEdit();
     if (selectedLane === "video") {
@@ -326,19 +338,42 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
       emitToast("Video/Image segment deleted.", "success");
       return;
     }
+    if (selectedLane === "effect") {
+      if (!effectSegments.length) return emitToast("No effect selected.", "error");
+      rememberEdit();
+      const removed = effectSegments[activeEffectIndex];
+      setEffectSegments((current) => current.filter((_, index) => index !== activeEffectIndex));
+      setSelectedEffectIndex(Math.max(0, activeEffectIndex - 1));
+      if (removed) setSettings((current) => ({ ...current, [removed.setting]: 0 }));
+      emitToast("Effect removed.", "success");
+      return;
+    }
     if (!ordered.length) return emitToast("No audio clip selected.", "error");
     rememberEdit();
     setOrdered((current) => current.filter((_, index) => index !== activeTrackIndex));
     setSelectedTrackIndex(Math.max(0, activeTrackIndex - 1));
     emitToast("Audio clip deleted.", "success");
-  }, [activeTrackIndex, activeVideoIndex, ordered.length, rememberEdit, selectedLane, videoSegments.length]);
+  }, [activeEffectIndex, activeTrackIndex, activeVideoIndex, effectSegments, ordered.length, rememberEdit, selectedLane, videoSegments.length]);
   function trimSelected(delta: number) {
     rememberEdit();
     if (selectedLane === "video") {
       setVideoSegments((current) => current.map((segment, index) => index === activeVideoIndex ? { ...segment, duration: Math.max(0.2, segment.duration + delta) } : segment));
       return;
     }
+    if (selectedLane === "effect") {
+      setEffectSegments((current) => current.map((segment, index) => index === activeEffectIndex ? { ...segment, duration: Math.max(0.2, segment.duration + delta) } : segment));
+      return;
+    }
     setOrdered((current) => current.map((track, index) => index === activeTrackIndex ? { ...track, durationSeconds: Math.max(1, track.durationSeconds + Math.round(delta * 12)) } : track));
+  }
+  function addEffect(setting: EffectSegment["setting"]) {
+    rememberEdit();
+    const label = { grain: "Grain", flicker: "Flicker", vignette: "Vignette", dust: "Dust" }[setting];
+    setEffectSegments((current) => [...current, { id: crypto.randomUUID(), label, setting, duration: 1 }]);
+    setSettings((current) => ({ ...current, [setting]: Math.max(Number(current[setting] ?? 0), setting === "grain" ? 18 : setting === "vignette" ? 28 : 8) }));
+    setSelectedLane("effect");
+    setSelectedEffectIndex(effectSegments.length);
+    emitToast(`${label} effect added.`, "success");
   }
 
   useEffect(() => {
@@ -403,12 +438,15 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
               <div className="mt-2 grid grid-cols-3 gap-1.5">{(["clean", "velvet", "rose-film", "midnight", "noir", "mono"] as const).map((preset) => <button key={preset} onClick={() => setSettings({ ...settings, visualPreset: preset })} className={`h-8 rounded-lg text-[10px] capitalize ${settings.visualPreset === preset ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)] hover:text-white"}`}>{preset.replace("-", " ")}</button>)}</div>
             </div>
             <div className="grid min-h-0 content-start gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["grain", "flicker", "vignette", "dust"] as const).map((effect) => <button key={effect} type="button" onClick={() => addEffect(effect)} className="h-7 rounded-md bg-white/[.045] text-[9px] capitalize text-[var(--text-secondary)] hover:bg-white/[.08] hover:text-white">+ {effect}</button>)}
+              </div>
               <EffectSlider label="Look" value={settings.filterIntensity ?? 70} onChange={(filterIntensity) => setSettings({ ...settings, filterIntensity })} />
               <EffectSlider label="Transparency" value={settings.overlayOpacity ?? 55} onChange={(overlayOpacity) => setSettings({ ...settings, overlayOpacity })} />
               <div className="grid grid-cols-2 gap-x-3 gap-y-2"><EffectSlider label="Grain" value={settings.grain ?? 18} onChange={(grain) => setSettings({ ...settings, grain })} /><EffectSlider label="Flicker" value={settings.flicker ?? 8} onChange={(flicker) => setSettings({ ...settings, flicker })} /><EffectSlider label="Vignette" value={settings.vignette ?? 28} onChange={(vignette) => setSettings({ ...settings, vignette })} /><EffectSlider label="Dust" value={settings.dust ?? 5} onChange={(dust) => setSettings({ ...settings, dust })} /></div>
               <div className="rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
                 <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Clip properties</div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)]"><span>Lane</span><span className="text-right capitalize text-white">{selectedLane}</span><span>Duration</span><span className="text-right text-white">{selectedDuration ? formatDuration(selectedLane === "video" ? Math.round(selectedDuration * 30) : selectedDuration) : "0:00"}</span><span>Cut point</span><span className="text-right text-white">{Math.round(cutFraction * 100)}%</span></div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)]"><span>Lane</span><span className="text-right capitalize text-white">{selectedLane}</span><span>Selected</span><span className="truncate text-right text-white">{selectedLane === "effect" ? activeEffect?.label : selectedLane === "video" ? activeVideo?.label : activeTrack?.title ?? "None"}</span><span>Duration</span><span className="text-right text-white">{selectedDuration ? formatDuration(selectedLane === "video" || selectedLane === "effect" ? Math.round(selectedDuration * 30) : selectedDuration) : "0:00"}</span><span>Cut point</span><span className="text-right text-white">{Math.round(cutFraction * 100)}%</span></div>
               </div>
             </div>
           </section>
@@ -430,7 +468,7 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
         <section className="relative grid grid-rows-[22px_repeat(3,minmax(0,1fr))] gap-2 rounded-xl bg-[#11101a] p-3 ring-1 ring-inset ring-[var(--border)]">
           <button type="button" onClick={(event) => setPlayheadFraction(pointerFraction(event))} className="relative ml-[112px] rounded bg-black/25 text-left ring-1 ring-inset ring-[var(--border)]"><span className="absolute inset-y-0 w-px bg-[var(--rose-soft)]" style={{ left: `${playheadFraction * 100}%` }} /><span className="grid h-full grid-cols-5 px-2 text-[9px] text-[var(--text-muted)]"><i>0:00</i><i>25%</i><i>50%</i><i>75%</i><i className="text-right">{formatDuration(total)}</i></span></button>
           <TimelineLane label="VIDEO/IMAGE" icon={<ImageIcon className="h-3 w-3" />}><Reorder.Group axis="x" values={videoSegments} onReorder={(next) => { rememberEdit(); setVideoSegments(next); }} className="flex h-full min-w-0 gap-1">{videoSegments.map((segment, index) => <Reorder.Item value={segment} key={segment.id} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("video"); setSelectedVideoIndex(index); setCutFraction(pointerFraction(event)); }} className={`relative h-full min-w-16 cursor-grab overflow-hidden rounded-md border px-2 text-left active:cursor-grabbing ${selectedLane === "video" && index === activeVideoIndex ? "border-[var(--border-active)] bg-[rgba(190,137,232,.18)]" : "border-[rgba(190,137,232,.26)] bg-[rgba(190,137,232,.11)]"}`} style={{ flexGrow: segment.duration, flexBasis: 0 }}><button type="button" aria-label="Trim video shorter" onClick={(event) => { event.stopPropagation(); trimSelected(-0.15); }} className="absolute bottom-1 left-1 top-1 w-1.5 rounded bg-white/35" /><button type="button" aria-label="Trim video longer" onClick={(event) => { event.stopPropagation(); trimSelected(0.15); }} className="absolute bottom-1 right-1 top-1 w-1.5 rounded bg-white/35" /><div className="truncate pl-2 pr-2 text-[10px] leading-8 text-white">{index === 0 && art?.name ? art.name : segment.label}</div>{selectedLane === "video" && index === activeVideoIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>)}</Reorder.Group></TimelineLane>
-          <TimelineLane label="EFFECT" icon={<Layers3 className="h-3 w-3" />}><div className="flex h-full gap-1">{[["Grain", settings.grain], ["Flicker", settings.flicker], ["Vignette", settings.vignette], ["Dust", settings.dust]].filter(([, value]) => Number(value) > 0).map(([label, value]) => <div key={String(label)} className="h-full min-w-20 flex-1 rounded-md border border-[rgba(239,99,152,.24)] bg-[rgba(239,99,152,.09)] px-2 text-[9px] leading-8 text-[var(--rose-soft)]">{label} {value}%</div>)}</div></TimelineLane>
+          <TimelineLane label="EFFECT" icon={<Layers3 className="h-3 w-3" />}><Reorder.Group axis="x" values={effectSegments} onReorder={(next) => { rememberEdit(); setEffectSegments(next); }} className="flex h-full min-w-0 gap-1">{effectSegments.length ? effectSegments.map((effect, index) => <Reorder.Item value={effect} key={effect.id} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("effect"); setSelectedEffectIndex(index); setCutFraction(pointerFraction(event)); }} className={`relative h-full min-w-20 cursor-grab overflow-hidden rounded-md border px-2 active:cursor-grabbing ${selectedLane === "effect" && index === activeEffectIndex ? "border-[var(--border-active)] bg-[rgba(239,99,152,.16)]" : "border-[rgba(239,99,152,.24)] bg-[rgba(239,99,152,.09)]"}`} style={{ flexGrow: effect.duration, flexBasis: 0 }}><button type="button" aria-label="Trim effect shorter" onClick={(event) => { event.stopPropagation(); trimSelected(-0.15); }} className="absolute bottom-1 left-1 top-1 w-1.5 rounded bg-white/35" /><button type="button" aria-label="Trim effect longer" onClick={(event) => { event.stopPropagation(); trimSelected(0.15); }} className="absolute bottom-1 right-1 top-1 w-1.5 rounded bg-white/35" /><div className="truncate px-2 text-[9px] leading-8 text-[var(--rose-soft)]">{effect.label} {Number(settings[effect.setting] ?? 0)}%</div>{selectedLane === "effect" && index === activeEffectIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>) : <button type="button" onClick={() => addEffect("grain")} className="grid h-full flex-1 place-items-center rounded-md border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">Add an effect</button>}</Reorder.Group></TimelineLane>
           <TimelineLane label="AUDIO" icon={<Music2 className="h-3 w-3" />}><Reorder.Group axis="x" values={ordered} onReorder={(next) => { rememberEdit(); setOrdered(next); }} className="flex h-full min-w-0 gap-1">{ordered.length ? ordered.map((track, index) => <Reorder.Item value={track} key={`${track.title}-${index}`} title={`${track.title} - drag to reorder`} onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setSelectedTrackIndex(index); setCutFraction(pointerFraction(event)); }} className={`group relative min-w-[52px] cursor-grab overflow-hidden rounded-md border px-2 active:cursor-grabbing ${selectedLane === "audio" && index === activeTrackIndex ? "border-[var(--border-active)] bg-[rgba(88,182,168,.16)]" : "border-[rgba(88,182,168,.28)] bg-[rgba(88,182,168,.1)]"}`} style={{ flexGrow: track.durationSeconds, flexBasis: 0 }}><button type="button" aria-label="Trim audio shorter" onClick={(event) => { event.stopPropagation(); trimSelected(-0.25); }} className="absolute bottom-1 left-1 top-1 w-1.5 rounded bg-white/35" /><button type="button" aria-label="Trim audio longer" onClick={(event) => { event.stopPropagation(); trimSelected(0.25); }} className="absolute bottom-1 right-1 top-1 w-1.5 rounded bg-white/35" /><div className="truncate px-2 text-[9px] leading-8 text-white">{String(index + 1).padStart(2, "0")} {track.title}</div><div className="absolute inset-x-1 bottom-1 flex h-1 items-end gap-px">{[3,7,4,9,5,8,3,6,4,8,5,7].map((height, bar) => <i key={bar} className="flex-1 bg-[rgba(136,222,206,.55)]" style={{ height }} />)}</div>{selectedLane === "audio" && index === activeTrackIndex ? <i className="absolute bottom-0 top-0 w-px bg-white/80" style={{ left: `${cutFraction * 100}%` }} /> : null}</Reorder.Item>) : <button type="button" onClick={(event: React.MouseEvent<HTMLElement>) => { setSelectedLane("audio"); setCutFraction(pointerFraction(event)); }} className="grid h-full flex-1 place-items-center rounded-md border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">Drop audio here or push tracks from New Media</button>}</Reorder.Group></TimelineLane>
         </section>
 
