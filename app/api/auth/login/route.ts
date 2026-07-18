@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authIsConfigured, createSessionToken, sessionCookieOptions, velvetAccountMatches, VELVET_SESSION_COOKIE } from "@/lib/auth";
+import { authIsConfigured, builtInDevAccountMatches, createSessionToken, sessionCookieOptions, velvetAccountMatches, VELVET_SESSION_COOKIE } from "@/lib/auth";
 import { storedOwnerAccountMatches } from "@/lib/server/auth-accounts";
 import { requireSameOrigin } from "@/lib/server/security";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const validAccount = typeof body.username === "string" && typeof body.email === "string" && typeof body.password === "string"
-    && ((await storedOwnerAccountMatches(body.username, body.email, body.password)) || (await velvetAccountMatches(body.username, body.email, body.password)));
+    && ((await storedOwnerAccountMatches(body.username, body.email, body.password)) || (await velvetAccountMatches(body.username, body.email, body.password)) || (await builtInDevAccountMatches(body.username, body.email, body.password)));
   if (!validAccount) {
     attempts.set(address, { count: limit?.resetAt && limit.resetAt > Date.now() ? limit.count + 1 : 1, resetAt: Date.now() + 15 * 60_000 });
     return NextResponse.json({ error: "That Velvet account is not correct." }, { status: 401 });

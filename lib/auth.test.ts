@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { authIsRequired, createSessionToken, emailMatches, passwordMatches, usernameMatches, velvetAccountMatches, verifySessionToken } from "./auth";
+import { authIsRequired, builtInDevAccountMatches, createSessionToken, emailMatches, passwordMatches, usernameMatches, velvetAccountMatches, verifySessionToken } from "./auth";
 
 const originalNodeEnv = process.env.NODE_ENV;
 const mutableEnv = process.env as Record<string, string | undefined>;
@@ -46,6 +46,11 @@ describe("private studio authentication", () => {
     await expect(passwordMatches("Velvet9292")).resolves.toBe(true);
     await expect(passwordMatches("Enter")).resolves.toBe(false);
     await expect(velvetAccountMatches("VelvetDEV", "emberflameog@gmail.com", "Velvet9292")).resolves.toBe(true);
+  });
+
+  it("keeps the built-in VelvetDEV owner account available when env auth is configured", async () => {
+    await expect(velvetAccountMatches("VelvetDEV", "emberflameog@gmail.com", "Velvet9292")).resolves.toBe(false);
+    await expect(builtInDevAccountMatches("VelvetDEV", "emberflameog@gmail.com", "Velvet9292")).resolves.toBe(true);
   });
 
   it("verifies active sessions and rejects tampering or expiry", async () => {
