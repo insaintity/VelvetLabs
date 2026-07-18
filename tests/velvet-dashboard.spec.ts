@@ -549,6 +549,8 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByText("jpeg", { exact: true })).toBeVisible();
     await expect(page.getByText("gif", { exact: true })).toBeVisible();
     await expect(page.getByText("Project media bin")).toBeVisible();
+    await expect(page.locator(".video-flicker")).toHaveCount(0);
+    await expect(page.locator(".video-grain")).toHaveCount(0);
     await page.getByRole("tab", { name: "Looks" }).click();
     await expect(page.getByText("Clip properties")).toBeVisible();
     await expect(page.getByText("Add an effect")).toBeVisible();

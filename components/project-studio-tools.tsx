@@ -180,12 +180,14 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const effectiveArtworkAssets = projectId ? artworkAssets : localArtworkAssets;
   const art = effectiveArtworkAssets.find((asset) => asset.id === settings.artworkAssetId) ?? effectiveArtworkAssets[0];
   const overlayStrength = (settings.overlayOpacity ?? 55) / 100;
+  const enabledEffects = new Set(effectSegments.map((effect) => effect.setting));
+  const effectAmount = (setting: EffectSegment["setting"]) => enabledEffects.has(setting) ? Number(settings[setting] ?? 0) : 0;
   const previewStyle = {
     filter: previewFilter(settings.visualPreset ?? "velvet", (settings.filterIntensity ?? 70) / 100),
-    "--grain-opacity": String(((settings.grain ?? 0) / 100) * overlayStrength),
-    "--flicker-opacity": String(((settings.flicker ?? 0) / 100) * overlayStrength),
-    "--vignette-opacity": String(((settings.vignette ?? 0) / 100) * overlayStrength),
-    "--dust-opacity": String(((settings.dust ?? 0) / 100) * overlayStrength)
+    "--grain-opacity": String((effectAmount("grain") / 100) * overlayStrength),
+    "--flicker-opacity": String((effectAmount("flicker") / 100) * overlayStrength),
+    "--vignette-opacity": String((effectAmount("vignette") / 100) * overlayStrength),
+    "--dust-opacity": String((effectAmount("dust") / 100) * overlayStrength)
   } as React.CSSProperties & Record<string, string>;
 
   async function uploadArtwork(file?: File) {
@@ -494,7 +496,7 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
           <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_42px] overflow-hidden rounded-xl bg-black/30 ring-1 ring-inset ring-[var(--border)]">
             <div className="video-preview relative isolate min-h-0 overflow-hidden bg-[#090a10]" style={previewStyle}>
               {art ? <div className="absolute inset-0 bg-center bg-no-repeat" style={{ backgroundImage: `url(${art.previewUrl ?? `/api/assets?projectId=${encodeURIComponent(projectId ?? "")}&assetId=${encodeURIComponent(art.id)}`})`, backgroundSize: cropMode === "fill" ? "cover" : "contain" }} /> : <div className="absolute inset-0 grid place-items-center"><div className="text-center"><ImageIcon className="mx-auto h-7 w-7 text-[var(--text-muted)]" /><div className="mt-3 font-serif text-4xl text-white">{projectTitle}</div><div className="mt-2 text-[10px] uppercase tracking-[.16em] text-[var(--text-muted)]">Drop artwork or audio here</div></div></div>}
-              <div className="video-grain absolute inset-0" /><div className="video-flicker absolute inset-0" /><div className="video-vignette absolute inset-0" /><div className="video-dust absolute inset-0" />
+              {enabledEffects.has("grain") ? <div className="video-grain absolute inset-0" /> : null}{enabledEffects.has("flicker") ? <div className="video-flicker absolute inset-0" /> : null}{enabledEffects.has("vignette") ? <div className="video-vignette absolute inset-0" /> : null}{enabledEffects.has("dust") ? <div className="video-dust absolute inset-0" /> : null}
               <motion.div className="absolute bottom-0 top-0 z-20 w-px bg-white/80 shadow-[0_0_8px_rgba(255,255,255,.7)]" initial={false} animate={{ left: previewing ? ["0%", "100%"] : "0%" }} transition={previewing ? { duration: 8, ease: "linear", repeat: Infinity } : { duration: 0.2 }} />
               {dragging ? <div className="absolute inset-0 z-30 grid place-items-center bg-black/55 backdrop-blur-sm"><div className="rounded-xl border border-[var(--border-active)] bg-[#211a2b]/95 px-5 py-4 text-center"><Upload className="mx-auto h-5 w-5 text-[var(--rose-soft)]" /><div className="mt-2 text-sm font-medium text-white">Drop media into timeline</div><div className="mt-1 text-xs text-[var(--text-muted)]">Images become visuals. Audio becomes music clips.</div></div></div> : null}
             </div>
