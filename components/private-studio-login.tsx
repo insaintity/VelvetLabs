@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { motion } from "framer-motion";
+
+const rememberedLoginKey = "velvet:remembered-login";
 
 export function PrivateStudioLogin() {
   const [mode, setMode] = useState<"login" | "signup" | "recover">("login");
@@ -12,11 +14,12 @@ export function PrivateStudioLogin() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [rememberLogin, setRememberLogin] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const autoLoginAttempted = useRef(false);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  const submitLogin = useCallback(async (options?: { auto?: boolean }) => {
     if (mode !== "login" && password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -27,9 +30,46 @@ export function PrivateStudioLogin() {
     const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, email, password, recoveryCode }) });
     const body = await response.json().catch(() => ({}));
     setBusy(false);
+    if (!response.ok && options?.auto) {
+      window.localStorage.removeItem(rememberedLoginKey);
+      setRememberLogin(false);
+    }
     if (!response.ok) return setError(body.error || (mode === "signup" ? "Velvet could not create that account." : mode === "recover" ? "Velvet could not recover that account." : "Velvet could not sign in."));
+    if (rememberLogin && mode === "login") {
+      window.localStorage.setItem(rememberedLoginKey, JSON.stringify({ username, email, password }));
+    } else if (mode === "login") {
+      window.localStorage.removeItem(rememberedLoginKey);
+    }
     const returnTo = new URLSearchParams(window.location.search).get("returnTo");
     window.location.assign(returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/projects/new");
+  }, [confirmPassword, email, mode, password, recoveryCode, rememberLogin, username]);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(rememberedLoginKey);
+    if (!raw) return;
+    let saved: { username?: string; email?: string; password?: string };
+    try {
+      saved = JSON.parse(raw) as { username?: string; email?: string; password?: string };
+    } catch {
+      window.localStorage.removeItem(rememberedLoginKey);
+      return;
+    }
+    if (!saved.username || !saved.email || !saved.password) return;
+    setUsername(saved.username);
+    setEmail(saved.email);
+    setPassword(saved.password);
+    setRememberLogin(true);
+  }, []);
+
+  useEffect(() => {
+    if (autoLoginAttempted.current || mode !== "login" || !rememberLogin || !username || !email || !password) return;
+    autoLoginAttempted.current = true;
+    void submitLogin({ auto: true });
+  }, [email, mode, password, rememberLogin, submitLogin, username]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    await submitLogin();
   }
 
   return (
@@ -56,6 +96,7 @@ export function PrivateStudioLogin() {
           {mode === "recover" ? <label className="block text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Recovery code<input required type="password" autoComplete="one-time-code" placeholder="Recovery code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} className="glass-control mt-2 h-11 w-full rounded-lg px-3 text-sm normal-case text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]" /></label> : null}
           <label className="block text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">{mode === "recover" ? "New password" : "Password"}<input required type="password" autoComplete={mode !== "login" ? "new-password" : "current-password"} placeholder={mode === "recover" ? "New password" : "Password"} value={password} onChange={(event) => setPassword(event.target.value)} className="glass-control mt-2 h-11 w-full rounded-lg px-3 text-sm normal-case text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]" /></label>
           {mode !== "login" ? <label className="block text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Confirm password<input required type="password" autoComplete="new-password" placeholder="Confirm password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="glass-control mt-2 h-11 w-full rounded-lg px-3 text-sm normal-case text-white outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-active)]" /></label> : null}
+          {mode === "login" ? <label className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-black/15 px-3 py-2 text-xs text-[var(--text-secondary)]"><span><span className="block text-white">Remember this account</span><span className="mt-0.5 block text-[10px] text-[var(--text-muted)]">Auto-fill and sign in on this browser.</span></span><input type="checkbox" checked={rememberLogin} onChange={(event) => setRememberLogin(event.target.checked)} className="h-4 w-4 accent-[var(--rose-soft)]" /></label> : null}
           <div aria-live="polite" className="mt-2 min-h-5 text-xs text-[var(--danger)]">{error}</div>
           <button disabled={busy || (mode !== "recover" && !username.trim()) || !email.trim() || !password || (mode !== "login" && !confirmPassword) || (mode === "recover" && !recoveryCode)} className="glass-primary mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40">{busy ? (mode === "signup" ? "Creating" : mode === "recover" ? "Recovering" : "Signing in") : (mode === "signup" ? "Create account" : mode === "recover" ? "Recover account" : "Log in")}<ArrowRight className="h-4 w-4" /></button>
         </form>
