@@ -1,26 +1,28 @@
 # Velvet
 
-Velvet is an AI music foundry for creating individual songs or complete albums and preparing them for YouTube release.
+Velvet is a private AI music foundry for creating individual songs or complete albums, shaping the visuals around them, and preparing export-ready media for YouTube or manual release.
 
 The app opens like a brand-new workspace and guides the user through setup before any generation workflow begins. Provider keys and OAuth tokens are encrypted locally, and the first working backend paths are in place for setup, blueprint generation, prompt history, jobs, rendering manifests, and YouTube upload.
 
 ## What It Does
 
 - Collects a natural-language prompt for a song or album.
-- Guides setup progressively: OpenAI for blueprints, ElevenLabs for music generation, and YouTube only for publishing.
+- Opens directly to New Media so the first action is always creating a song or album plan.
+- Guides setup progressively: OpenAI for plans, ElevenLabs for music generation, and YouTube only for optional publishing.
 - Encrypts provider secrets before local storage.
 - Validates OpenAI and ElevenLabs keys.
 - Lets users provide any PostgreSQL database URL and validates the connection.
 - Initializes `velvet_*` tables in PostgreSQL and syncs local records into them.
 - Includes a portable PostgreSQL migration for the Velvet schema.
 - Supports opt-in hosted database mirroring with `VELVET_DATABASE_MODE=postgres`.
-- Generates song and album blueprints as soon as OpenAI is connected; later services do not block creative planning.
-- Provides a project review screen for approving blueprints before paid generation.
+- Generates song and album plans as soon as OpenAI is connected; later services do not block creative planning.
+- Provides a project review screen for approving plans before paid generation.
 - Lets the user edit project title, concept, generation prompts, and YouTube metadata before generation/upload.
 - Auditions real generated audio in a persistent waveform transport.
 - Retains per-track generation versions for A/B comparison, selection, approval, download, and targeted regeneration.
 - Refines track prompts with OpenAI while preserving the original prompt and explanation in version history.
-- Provides a draggable video timeline that combines artwork and ordered music with mastering, gaps, fades, target loudness, runtime, and scheduled publishing.
+- Provides a draggable video timeline with clear Add Media, Edit, Effects, and Export modes.
+- Combines artwork, video, audio, filters, mastering, gaps, fades, target loudness, runtime, and scheduled publishing.
 - Previews and renders Velvet, rose-film, midnight, noir, and monochrome looks with adjustable grain, flicker, vignette, dust, and overlay transparency.
 - Imports audio and artwork references into the protected project export directory.
 - Mirrors generated audio, references, manifests, and rendered video into private S3-compatible storage when server credentials are configured.
@@ -38,7 +40,7 @@ The app opens like a brand-new workspace and guides the user through setup befor
 - Provides a fixed, no-scroll hosted studio interface with command palette, animated loading states, and reduced-motion support.
 - Protects production as a private single-user studio with a signed, HTTP-only login session.
 - Schedules rendered releases for future YouTube uploads with privacy controls and cancellation.
-- Tracks successful and failed uploads, success rate, privacy mix, and six-month publishing outcomes.
+- Merges publishing analytics into the Publishing workspace with upload success rate and recent publishing history.
 - Shows empty Projects and Upload History states until real user work exists.
 - Defines the upload history surface that will preserve the prompts used for each uploaded release.
 
@@ -106,10 +108,13 @@ Railway is the recommended low-cost production target. The root Docker image inc
 
 ## Available Routes
 
+- `/` - redirects to New Media
 - `/projects/new` - New Media prompt entry for songs or albums
 - `/projects` - empty project library
-- `/publishing` - schedule rendered releases for YouTube
-- `/analytics` - prior upload success, failures, and publishing trends
+- `/video-editor` - standalone video timeline for uploaded media or New Media output
+- `/thumbnail-editor` - thumbnail workspace
+- `/publishing` - schedule rendered releases and review upload performance
+- `/showcase` - marketing/showcase homepage
 - `/history` - upload history and prompt archive
 - `/settings` - onboarding for ChatGPT/OpenAI, ElevenLabs, YouTube login, storage, and worker setup
 
@@ -122,6 +127,20 @@ Velvet is focused on:
 - YouTube login via Google OAuth for private uploads, thumbnails, metadata, and publishing workflows
 
 The setup UI saves keys through server routes. Secrets are encrypted with AES-GCM and stored in the gitignored `.velvet/` folder. Production deployments can set `VELVET_SECRET_PROVIDER=env` for host-provided secrets or `VELVET_SECRET_PROVIDER=vault` for a HashiCorp Vault-compatible KV v2 store.
+
+## Moving To Another Machine
+
+Clone the repo on the laptop, install dependencies, copy `.env.example` to `.env.local`, and add the same production or local secrets you want to use.
+
+```bash
+git clone https://github.com/insaintity/Velvet.git
+cd Velvet
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+The gitignored `.velvet/` folder is local runtime data. If you want the laptop to have the same local projects, use Velvet's backup export/restore flow from Settings rather than committing local secrets or media caches.
 
 ## Upload History
 
@@ -187,10 +206,10 @@ Important variables include:
 
 ## Current Limitations
 
-- The local `.velvet/` database and media cache are intended for development and single-user desktop use.
+- The local `.velvet/` database and media cache are intended for development and private single-user use.
 - Long-running music, render, and upload work is queued for the worker process. Production should run the worker as a managed service/container.
 - The render endpoint creates a render manifest and renders a release MP4 when FFmpeg is available.
-- YouTube upload requires a real rendered MP4 path and an app-level Google OAuth client. End users connect through Google's account chooser and never enter OAuth developer credentials.
+- YouTube upload requires a real rendered video and an app-level Google OAuth client. End users connect through Google's account chooser and never enter OAuth developer credentials.
 - User-provided PostgreSQL connections can be saved, validated, initialized, synced, and used as an opt-in hosted mirror.
 - Shared S3-compatible storage is optional locally and required when production processes do not share durable media storage.
 - Budget guardrails enforce local action limits, and cost estimates depend on user-provided rates rather than hardcoded provider pricing.
