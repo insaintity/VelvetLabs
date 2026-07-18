@@ -35,17 +35,17 @@ describe("private studio authentication", () => {
     await expect(velvetAccountMatches("luna", "noir@velvet.test", "velvet-test-password")).resolves.toBe(false);
   });
 
-  it("uses velvet and Enter as the default account", async () => {
+  it("uses the built-in VelvetDEV owner account by default", async () => {
     delete process.env.VELVET_ADMIN_USERNAME;
     delete process.env.VELVET_ADMIN_EMAIL;
     delete process.env.VELVET_ADMIN_PASSWORD;
-    await expect(usernameMatches("velvet")).resolves.toBe(true);
-    await expect(usernameMatches("Velvet")).resolves.toBe(true);
-    await expect(emailMatches("studio@velvet.local")).resolves.toBe(true);
-    await expect(emailMatches("not-an-email")).resolves.toBe(false);
-    await expect(passwordMatches("Enter")).resolves.toBe(true);
-    await expect(passwordMatches("enter")).resolves.toBe(false);
-    await expect(velvetAccountMatches("velvet", "studio@velvet.local", "Enter")).resolves.toBe(true);
+    await expect(usernameMatches("VelvetDEV")).resolves.toBe(true);
+    await expect(usernameMatches("velvetdev")).resolves.toBe(true);
+    await expect(emailMatches("emberflameog@gmail.com")).resolves.toBe(true);
+    await expect(emailMatches("studio@velvet.local")).resolves.toBe(false);
+    await expect(passwordMatches("Velvet9292")).resolves.toBe(true);
+    await expect(passwordMatches("Enter")).resolves.toBe(false);
+    await expect(velvetAccountMatches("VelvetDEV", "emberflameog@gmail.com", "Velvet9292")).resolves.toBe(true);
   });
 
   it("verifies active sessions and rejects tampering or expiry", async () => {

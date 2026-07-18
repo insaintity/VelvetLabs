@@ -1,4 +1,5 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
+import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_USERNAME, DEFAULT_STUDIO_PASSWORD } from "@/lib/auth";
 import { readDatabase, updateSetup } from "./db";
 import type { SetupRecord } from "./types";
 
@@ -45,8 +46,8 @@ export async function readOwnerAccountSummary() {
   const database = await readDatabase();
   const account = database.setup.auth;
   return {
-    username: account?.username || process.env.VELVET_ADMIN_USERNAME || "velvet",
-    email: account?.email || process.env.VELVET_ADMIN_EMAIL || "",
+    username: account?.username || process.env.VELVET_ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME,
+    email: account?.email || process.env.VELVET_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL,
     stored: Boolean(account?.passwordHash),
     recoveryEnabled: Boolean(process.env.VELVET_RECOVERY_CODE)
   };
@@ -55,11 +56,11 @@ export async function readOwnerAccountSummary() {
 export async function updateStoredOwnerAccount({ currentPassword, username, email, password }: { currentPassword: string; username?: string; email?: string; password?: string }) {
   const database = await readDatabase();
   const existing = database.setup.auth;
-  const currentUsername = existing?.username || process.env.VELVET_ADMIN_USERNAME || "velvet";
-  const currentEmail = existing?.email || process.env.VELVET_ADMIN_EMAIL || "";
+  const currentUsername = existing?.username || process.env.VELVET_ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME;
+  const currentEmail = existing?.email || process.env.VELVET_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
   const validPassword = existing
     ? verifyStoredOwnerAccount(existing, currentUsername, currentEmail, currentPassword)
-    : currentPassword === (process.env.VELVET_ADMIN_PASSWORD || "Enter");
+    : currentPassword === (process.env.VELVET_ADMIN_PASSWORD || DEFAULT_STUDIO_PASSWORD);
   if (!validPassword) throw new Error("Current password is not correct.");
   const nextUsername = typeof username === "string" && username.trim() ? username.trim().slice(0, 80) : currentUsername;
   const nextEmail = typeof email === "string" && email.trim() ? email.trim().toLowerCase().slice(0, 180) : currentEmail;
@@ -84,12 +85,12 @@ export async function recoverStoredOwnerAccount({ email, recoveryCode, password 
   if (recoveryCode !== expectedCode) throw new Error("Recovery code is not correct.");
   const database = await readDatabase();
   const existing = database.setup.auth;
-  const accountEmail = existing?.email || process.env.VELVET_ADMIN_EMAIL || "";
+  const accountEmail = existing?.email || process.env.VELVET_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
   if (accountEmail.trim().toLowerCase() !== email.trim().toLowerCase()) throw new Error("Recovery details do not match this studio.");
   if (password.length < 8) throw new Error("Choose a password with at least 8 characters.");
   const now = new Date().toISOString();
   const account = {
-    username: existing?.username || process.env.VELVET_ADMIN_USERNAME || "velvet",
+    username: existing?.username || process.env.VELVET_ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME,
     email: accountEmail,
     ...hashPassword(password),
     createdAt: existing?.createdAt || now,

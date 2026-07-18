@@ -1,7 +1,8 @@
 export const VELVET_SESSION_COOKIE = "velvet_session";
 const SESSION_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
-const DEFAULT_ADMIN_USERNAME = "velvet";
-const DEFAULT_STUDIO_PASSWORD = "Enter";
+export const DEFAULT_ADMIN_USERNAME = "VelvetDEV";
+export const DEFAULT_ADMIN_EMAIL = "emberflameog@gmail.com";
+export const DEFAULT_STUDIO_PASSWORD = "Velvet9292";
 
 export function authIsConfigured() {
   return true;
@@ -23,8 +24,7 @@ export async function usernameMatches(candidate: string) {
 }
 
 export async function emailMatches(candidate: string) {
-  const expected = process.env.VELVET_ADMIN_EMAIL;
-  if (!expected) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.trim());
+  const expected = process.env.VELVET_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
   return constantTimeEqual(await digest(candidate.trim().toLowerCase()), await digest(expected.trim().toLowerCase()));
 }
 
