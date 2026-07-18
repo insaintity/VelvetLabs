@@ -9,6 +9,7 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3001",
+    env: { ...process.env, VELVET_DESKTOP: "1" },
     url: "http://127.0.0.1:3001/dashboard",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

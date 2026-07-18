@@ -88,9 +88,9 @@ test.describe("Velvet dashboard", () => {
     expect(Math.abs((cardBox!.x + cardBox!.width / 2) - viewport.width / 2)).toBeLessThanOrEqual(8);
     expect(Math.abs((cardBox!.y + cardBox!.height / 2) - viewport.height / 2)).toBeLessThanOrEqual(8);
 
-    await page.getByLabel("Username").fill("velvet");
-    await page.getByLabel("Verified email").fill("studio@velvet.local");
-    await page.getByLabel("Password").fill("Enter");
+    await page.getByLabel("Username").fill("VelvetDEV");
+    await page.getByLabel("Verified email").fill("emberflameog@gmail.com");
+    await page.getByLabel("Password").fill("Velvet9292");
     await loginCard.locator("form").getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
   });
@@ -541,8 +541,18 @@ test.describe("Velvet dashboard", () => {
     await expect(page.getByRole("button", { name: "Fit crop" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Remove audio" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
-    await expect(page.getByText("Asset bin")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Add Media" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Select multiple media files")).toBeVisible();
+    await expect(page.getByText("mp3", { exact: true })).toBeVisible();
+    await expect(page.getByText("mp4", { exact: true })).toBeVisible();
+    await expect(page.getByText("png", { exact: true })).toBeVisible();
+    await expect(page.getByText("jpeg", { exact: true })).toBeVisible();
+    await expect(page.getByText("gif", { exact: true })).toBeVisible();
+    await expect(page.getByText("Project media bin")).toBeVisible();
+    await page.getByRole("tab", { name: "Looks" }).click();
     await expect(page.getByText("Clip properties")).toBeVisible();
+    await expect(page.getByText("Add an effect")).toBeVisible();
+    await expect(page.getByText("Grain 18%")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "+ grain" })).toBeVisible();
     await page.getByRole("button", { name: "+ grain" }).click();
     await expect(page.getByText("Grain effect added.")).toBeVisible();

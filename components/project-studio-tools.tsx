@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeft, Check, Clipboard, Clock3, Copy, Crop, Download, Eye, FileAudio, ImageIcon, Layers3, Loader2, Music2, Pause, Play, Redo2, RefreshCw, RotateCcw, Scissors, Sparkles, Trash2, Undo2, Upload, VolumeX, X } from "lucide-react";
+import { Activity, ArrowLeft, Check, Clipboard, Clock3, Copy, Crop, Download, Eye, FileAudio, FileVideo, ImageIcon, Layers3, Loader2, Music2, Pause, Play, Redo2, RefreshCw, RotateCcw, Scissors, Sparkles, Trash2, Undo2, Upload, VolumeX, X } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { StatusPill, Waveform } from "@/components/studio-chrome";
 import { formatDuration } from "@/lib/time";
@@ -27,10 +27,12 @@ export type StudioProduction = {
   dust?: number;
 };
 export type StudioArtwork = { id: string; name: string; kind: "audio" | "artwork"; filePath: string; storagePath?: string; previewUrl?: string; createdAt: string };
+type LocalMediaAsset = { id: string; name: string; kind: "audio" | "image" | "video"; previewUrl?: string; durationSeconds?: number; createdAt: string };
 type VideoSegment = { id: string; label: string; duration: number };
 type EffectSegment = { id: string; label: string; setting: "grain" | "flicker" | "vignette" | "dust"; duration: number };
 type EditorSnapshot = { ordered: StudioTrack[]; videoSegments: VideoSegment[]; effectSegments: EffectSegment[] };
 const DEFAULT_STUDIO_PRODUCTION: StudioProduction = { gapSeconds: 1.5, fadeSeconds: 0.8, targetLufs: -14, stylePreset: "Studio master", visualPreset: "velvet", filterIntensity: 70, overlayOpacity: 55, grain: 18, flicker: 8, vignette: 28, dust: 5 };
+const acceptedEditorMediaTypes = ".mp3,.mp4,.png,.jpg,.jpeg,.gif,audio/mpeg,audio/mp3,video/mp4,image/png,image/jpeg,image/gif";
 
 function Drawer({ open, onClose, title, icon, children, width = "max-w-[560px]" }: { open: boolean; onClose: () => void; title: string; icon: React.ReactNode; children: React.ReactNode; width?: string }) {
   return (
@@ -150,17 +152,14 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [localArtworkAssets, setLocalArtworkAssets] = useState<StudioArtwork[]>([]);
+  const [localMediaAssets, setLocalMediaAssets] = useState<LocalMediaAsset[]>([]);
+  const [activeEditorTab, setActiveEditorTab] = useState<"media" | "looks">("media");
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [copiedTrack, setCopiedTrack] = useState<StudioTrack | null>(null);
   const [cropMode, setCropMode] = useState<"fill" | "fit">("fill");
   const [selectedLane, setSelectedLane] = useState<"video" | "effect" | "audio">("audio");
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
-  const [effectSegments, setEffectSegments] = useState<EffectSegment[]>(() => [
-    { id: crypto.randomUUID(), label: "Grain", setting: "grain", duration: 1 },
-    { id: crypto.randomUUID(), label: "Flicker", setting: "flicker", duration: 1 },
-    { id: crypto.randomUUID(), label: "Vignette", setting: "vignette", duration: 1 },
-    { id: crypto.randomUUID(), label: "Dust", setting: "dust", duration: 1 }
-  ]);
+  const [effectSegments, setEffectSegments] = useState<EffectSegment[]>([]);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [selectedEffectIndex, setSelectedEffectIndex] = useState(0);
   const [cutFraction, setCutFraction] = useState(0.5);
@@ -212,8 +211,10 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   async function importFiles(files: File[]) {
     if (!files.length) return;
     setUploading(true);
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-    const audioFiles = files.filter((file) => file.type.startsWith("audio/"));
+    const supportedFiles = files.filter(isSupportedEditorMedia);
+    const imageFiles = supportedFiles.filter((file) => isImageFile(file));
+    const audioFiles = supportedFiles.filter((file) => isAudioFile(file));
+    const videoFiles = supportedFiles.filter((file) => isVideoFile(file));
     if (projectId && imageFiles.length) {
       for (const image of imageFiles) await uploadArtwork(image);
     } else if (imageFiles.length) {
@@ -231,6 +232,19 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
       setSelectedLane("video");
       setSelectedVideoIndex(videoSegments.length);
     }
+    if (videoFiles.length) {
+      const videoAssets = videoFiles.map((file) => ({
+        id: crypto.randomUUID(),
+        name: file.name.slice(0, 180),
+        kind: "video" as const,
+        previewUrl: URL.createObjectURL(file),
+        createdAt: new Date().toISOString()
+      }));
+      setLocalMediaAssets((current) => [...current, ...videoAssets]);
+      setVideoSegments((current) => [...current, ...videoAssets.map((asset) => ({ id: crypto.randomUUID(), label: asset.name, duration: 1 }))]);
+      setSelectedLane("video");
+      setSelectedVideoIndex(videoSegments.length);
+    }
     if (audioFiles.length) {
       const importedTracks = await Promise.all(audioFiles.map(async (file) => ({
         title: file.name.replace(/\.[^.]+$/, "").slice(0, 80) || "Imported audio",
@@ -240,10 +254,10 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
       })));
       setOrdered((current) => [...current, ...importedTracks]);
     }
-    const rejected = files.length - imageFiles.length - audioFiles.length;
+    const rejected = files.length - supportedFiles.length;
     setUploading(false);
-    if (imageFiles.length || audioFiles.length) emitToast("Media added to the video editor.", "success");
-    if (rejected) emitToast("Use image or audio files in the video editor.", "error");
+    if (imageFiles.length || audioFiles.length || videoFiles.length) emitToast("Media added to the video editor.", "success");
+    if (rejected) emitToast("Use MP3, MP4, PNG, JPEG, or GIF files in the video editor.", "error");
   }
 
   async function saveTimeline() {
@@ -260,7 +274,11 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
   const activeEffectIndex = Math.min(Math.max(0, selectedEffectIndex), Math.max(0, effectSegments.length - 1));
   const activeEffect = effectSegments[activeEffectIndex];
   const selectedDuration = selectedLane === "video" ? activeVideo?.duration : selectedLane === "effect" ? activeEffect?.duration : activeTrack?.durationSeconds;
-  const assetNames = [...effectiveArtworkAssets.map((asset) => asset.name), ...ordered.map((track) => track.title)];
+  const mediaBinItems = [
+    ...effectiveArtworkAssets.map((asset) => ({ id: asset.id, name: asset.name, kind: "image" as const })),
+    ...localMediaAssets,
+    ...ordered.map((track, index) => ({ id: `track-${index}-${track.title}`, name: track.title, kind: "audio" as const, durationSeconds: track.durationSeconds }))
+  ];
   const rememberEdit = useCallback(() => {
     setUndoStack((current) => [...current.slice(-24), { ordered, videoSegments, effectSegments }]);
     setRedoStack([]);
@@ -486,31 +504,41 @@ export function SequenceDrawer({ open, onClose, projectId, projectTitle, tracks,
             </div>
           </section>
 
-          <section className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 rounded-xl bg-[#1a1725] p-3 ring-1 ring-inset ring-[var(--border)]">
-            <div>
-              <div className="flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Media</span><label title="Upload media" className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md bg-white/[.05] px-2 text-[10px] hover:bg-white/[.08]">{uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}Add<input type="file" accept="image/*,audio/*" multiple className="hidden" onChange={(event) => importFiles(Array.from(event.target.files ?? [])).catch(() => emitToast("Media could not be imported.", "error"))} /></label></div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">{effectiveArtworkAssets.slice(0, 3).map((asset) => <button key={asset.id} title={asset.name} onClick={() => setSettings({ ...settings, artworkAssetId: asset.id })} className={`h-9 truncate rounded-lg px-2 text-[10px] ${art?.id === asset.id ? "bg-[rgba(239,99,152,.15)] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)]"}`}>{asset.name}</button>)}{!effectiveArtworkAssets.length ? <div className="col-span-3 grid h-9 place-items-center rounded-lg bg-black/20 text-[10px] text-[var(--text-muted)]">Drop or add artwork</div> : null}</div>
-              <div className="mt-3 rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
-                <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Asset bin</div>
-                <div className="mt-2 grid gap-1">{assetNames.length ? assetNames.slice(0, 5).map((name) => <div key={name} className="truncate rounded bg-white/[.035] px-2 py-1.5 text-[10px] text-[var(--text-secondary)]">{name}</div>) : <div className="text-[10px] text-[var(--text-muted)]">Upload or drag files to fill the bin.</div>}</div>
-              </div>
+          <section className="grid min-h-0 grid-rows-[36px_minmax(0,1fr)] gap-3 rounded-xl bg-[#1a1725] p-3 ring-1 ring-inset ring-[var(--border)]">
+            <div role="tablist" aria-label="Video timeline tools" className="grid grid-cols-2 gap-1 rounded-lg bg-black/20 p-1">
+              <button role="tab" aria-selected={activeEditorTab === "media"} onClick={() => setActiveEditorTab("media")} className={`rounded-md text-[10px] font-semibold uppercase tracking-[.12em] ${activeEditorTab === "media" ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "text-[var(--text-muted)] hover:text-white"}`}>Add Media</button>
+              <button role="tab" aria-selected={activeEditorTab === "looks"} onClick={() => setActiveEditorTab("looks")} className={`rounded-md text-[10px] font-semibold uppercase tracking-[.12em] ${activeEditorTab === "looks" ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "text-[var(--text-muted)] hover:text-white"}`}>Looks</button>
             </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Velvet looks</div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">{(["clean", "velvet", "rose-film", "midnight", "noir", "mono"] as const).map((preset) => <button key={preset} onClick={() => setSettings({ ...settings, visualPreset: preset })} className={`h-8 rounded-lg text-[10px] capitalize ${settings.visualPreset === preset ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)] hover:text-white"}`}>{preset.replace("-", " ")}</button>)}</div>
-            </div>
-            <div className="grid min-h-0 content-start gap-2">
-              <div className="grid grid-cols-4 gap-1.5">
-                {(["grain", "flicker", "vignette", "dust"] as const).map((effect) => <button key={effect} type="button" onClick={() => addEffect(effect)} className="h-7 rounded-md bg-white/[.045] text-[9px] capitalize text-[var(--text-secondary)] hover:bg-white/[.08] hover:text-white">+ {effect}</button>)}
+            {activeEditorTab === "media" ? <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3">
+              <label title="Add media to this video edit" className="grid min-h-[74px] cursor-pointer place-items-center rounded-xl border border-dashed border-[var(--border-hover)] bg-black/20 p-3 text-center hover:border-[var(--border-active)] hover:bg-white/[.04]">
+                {uploading ? <Loader2 className="h-5 w-5 animate-spin text-[var(--rose-soft)]" /> : <Upload className="h-5 w-5 text-[var(--rose-soft)]" />}
+                <span className="mt-2 block text-xs font-medium text-white">Select multiple media files</span>
+                <span className="mt-1 block text-[10px] text-[var(--text-muted)]">MP3, MP4, PNG, JPEG, GIF</span>
+                <input type="file" accept={acceptedEditorMediaTypes} multiple className="hidden" onChange={(event) => importFiles(Array.from(event.target.files ?? [])).catch(() => emitToast("Media could not be imported.", "error"))} />
+              </label>
+              <div className="grid grid-cols-5 gap-1">{["mp3", "mp4", "png", "jpeg", "gif"].map((type) => <span key={type} className="grid h-7 place-items-center rounded-md bg-white/[.04] text-[9px] font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">{type}</span>)}</div>
+              <div className="min-h-0 overflow-hidden rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
+                <div className="flex items-center justify-between"><span className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Project media bin</span><span className="text-[9px] tabular text-[var(--text-muted)]">{mediaBinItems.length}</span></div>
+                <div className="mt-2 grid max-h-full gap-1 overflow-hidden">{mediaBinItems.length ? mediaBinItems.slice(0, 9).map((item) => <button key={item.id} type="button" title={item.name} onClick={() => { if (item.kind === "image") setSettings({ ...settings, artworkAssetId: item.id }); }} className="grid h-8 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded bg-white/[.035] px-2 text-left text-[10px] text-[var(--text-secondary)] hover:bg-white/[.06] hover:text-white">{item.kind === "audio" ? <FileAudio className="h-3.5 w-3.5 text-[var(--cyan)]" /> : item.kind === "video" ? <FileVideo className="h-3.5 w-3.5 text-[var(--violet)]" /> : <ImageIcon className="h-3.5 w-3.5 text-[var(--rose-soft)]" />}<span className="truncate">{item.name}</span><span className="uppercase text-[8px] text-[var(--text-muted)]">{item.kind}</span></button>) : <div className="grid h-20 place-items-center rounded bg-white/[.025] text-center text-[10px] leading-4 text-[var(--text-muted)]">Add or drag media to fill the bin.</div>}</div>
               </div>
-              <EffectSlider label="Look" value={settings.filterIntensity ?? 70} onChange={(filterIntensity) => setSettings({ ...settings, filterIntensity })} />
-              <EffectSlider label="Transparency" value={settings.overlayOpacity ?? 55} onChange={(overlayOpacity) => setSettings({ ...settings, overlayOpacity })} />
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2"><EffectSlider label="Grain" value={settings.grain ?? 18} onChange={(grain) => setSettings({ ...settings, grain })} /><EffectSlider label="Flicker" value={settings.flicker ?? 8} onChange={(flicker) => setSettings({ ...settings, flicker })} /><EffectSlider label="Vignette" value={settings.vignette ?? 28} onChange={(vignette) => setSettings({ ...settings, vignette })} /><EffectSlider label="Dust" value={settings.dust ?? 5} onChange={(dust) => setSettings({ ...settings, dust })} /></div>
-              <div className="rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
-                <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Clip properties</div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)]"><span>Lane</span><span className="text-right capitalize text-white">{selectedLane}</span><span>Selected</span><span className="truncate text-right text-white">{selectedLane === "effect" ? activeEffect?.label : selectedLane === "video" ? activeVideo?.label : activeTrack?.title ?? "None"}</span><span>Duration</span><span className="text-right text-white">{selectedDuration ? formatDuration(selectedLane === "video" || selectedLane === "effect" ? Math.round(selectedDuration * 30) : selectedDuration) : "0:00"}</span><span>Cut point</span><span className="text-right text-white">{Math.round(cutFraction * 100)}%</span></div>
+            </div> : <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[.13em] text-[var(--rose-soft)]">Velvet looks</div>
+                <div className="mt-2 grid grid-cols-3 gap-1.5">{(["clean", "velvet", "rose-film", "midnight", "noir", "mono"] as const).map((preset) => <button key={preset} onClick={() => setSettings({ ...settings, visualPreset: preset })} className={`h-8 rounded-lg text-[10px] capitalize ${settings.visualPreset === preset ? "bg-white/[.1] text-white ring-1 ring-inset ring-[var(--border-active)]" : "bg-black/20 text-[var(--text-muted)] hover:text-white"}`}>{preset.replace("-", " ")}</button>)}</div>
               </div>
-            </div>
+              <div className="grid min-h-0 content-start gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(["grain", "flicker", "vignette", "dust"] as const).map((effect) => <button key={effect} type="button" onClick={() => addEffect(effect)} className="h-7 rounded-md bg-white/[.045] text-[9px] capitalize text-[var(--text-secondary)] hover:bg-white/[.08] hover:text-white">+ {effect}</button>)}
+                </div>
+                <EffectSlider label="Look" value={settings.filterIntensity ?? 70} onChange={(filterIntensity) => setSettings({ ...settings, filterIntensity })} />
+                <EffectSlider label="Transparency" value={settings.overlayOpacity ?? 55} onChange={(overlayOpacity) => setSettings({ ...settings, overlayOpacity })} />
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2"><EffectSlider label="Grain" value={settings.grain ?? 18} onChange={(grain) => setSettings({ ...settings, grain })} /><EffectSlider label="Flicker" value={settings.flicker ?? 8} onChange={(flicker) => setSettings({ ...settings, flicker })} /><EffectSlider label="Vignette" value={settings.vignette ?? 28} onChange={(vignette) => setSettings({ ...settings, vignette })} /><EffectSlider label="Dust" value={settings.dust ?? 5} onChange={(dust) => setSettings({ ...settings, dust })} /></div>
+                <div className="rounded-lg bg-black/20 p-2 ring-1 ring-inset ring-[var(--border)]">
+                  <div className="text-[9px] font-semibold uppercase tracking-[.12em] text-[var(--text-muted)]">Clip properties</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)]"><span>Lane</span><span className="text-right capitalize text-white">{selectedLane}</span><span>Selected</span><span className="truncate text-right text-white">{selectedLane === "effect" ? activeEffect?.label : selectedLane === "video" ? activeVideo?.label : activeTrack?.title ?? "None"}</span><span>Duration</span><span className="text-right text-white">{selectedDuration ? formatDuration(selectedLane === "video" || selectedLane === "effect" ? Math.round(selectedDuration * 30) : selectedDuration) : "0:00"}</span><span>Cut point</span><span className="text-right text-white">{Math.round(cutFraction * 100)}%</span></div>
+                </div>
+              </div>
+            </div>}
           </section>
         </div>
 
@@ -580,6 +608,26 @@ function previewFilter(preset: NonNullable<StudioProduction["visualPreset"]>, in
   if (preset === "rose-film") return `sepia(${amount * 0.18}) saturate(${1 - amount * 0.08}) contrast(${1 + amount * 0.09}) hue-rotate(${-amount * 8}deg)`;
   if (preset === "midnight") return `saturate(${1 - amount * 0.18}) contrast(${1 + amount * 0.18}) brightness(${1 - amount * 0.07}) hue-rotate(${amount * 12}deg)`;
   return `saturate(${1 + amount * 0.12}) contrast(${1 + amount * 0.12}) brightness(${1 - amount * 0.03}) hue-rotate(${amount * 4}deg)`;
+}
+
+function fileExtension(file: File) {
+  return file.name.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function isAudioFile(file: File) {
+  return file.type === "audio/mpeg" || file.type === "audio/mp3" || fileExtension(file) === "mp3";
+}
+
+function isVideoFile(file: File) {
+  return file.type === "video/mp4" || fileExtension(file) === "mp4";
+}
+
+function isImageFile(file: File) {
+  return ["image/png", "image/jpeg", "image/gif"].includes(file.type) || ["png", "jpg", "jpeg", "gif"].includes(fileExtension(file));
+}
+
+function isSupportedEditorMedia(file: File) {
+  return isAudioFile(file) || isVideoFile(file) || isImageFile(file);
 }
 
 function readAudioDuration(file: File) {
