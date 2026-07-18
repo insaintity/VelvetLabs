@@ -1,8 +1,8 @@
 import { VelvetApp } from "@/components/velvet-app";
-import { redirect } from "next/navigation";
+import { ShowcaseHome } from "@/components/showcase-home";
 
 export default async function CatchAllPage({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
-  if (!slug?.length) redirect("/projects/new");
+  if (!slug?.length) return <ShowcaseHome />;
   return <VelvetApp />;
 }
